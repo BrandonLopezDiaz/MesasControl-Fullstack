@@ -1,10 +1,18 @@
 import axios from "axios";
 
-// 🔹 Usar variable de entorno para la API
-const BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:8000";
+const getBaseURL = () => {
+  const url = process.env.REACT_APP_API_URL;
+  if (url) {
+    return url.replace(/\/$/, ""); 
+  }
+  console.warn("⚠️ REACT_APP_API_URL no está definida, usando localhost");
+  return "http://127.0.0.1:8000";
+};
 
-const API_v1 = `${BASE_URL}/api/v1/productos/`;
-const API_v2 = `${BASE_URL}/api/v2/pedido_detail/`;
+const BASE_URL = getBaseURL();
+
+export const API_v1 = `${BASE_URL}/api/v1/productos/`;
+export const API_v2 = `${BASE_URL}/api/v2/pedido_detail/`;
 
 export const fetchProductos = async () => {
   try {
