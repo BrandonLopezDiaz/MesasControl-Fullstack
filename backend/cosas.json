@@ -1,0 +1,23 @@
+[
+    {
+        "id": 1,
+        "nombre": "Mondongo",
+        "precio": "110.00",
+        "productosPedidos": [
+            {
+                "id": 1,
+                "id_producto": 1,
+                "nombre": "Mondongo",
+                "precio": "220.00",
+                "cantidad": 2
+            },
+            {
+                "id": 2,
+                "id_producto": 2,
+                "nombre": "Arroz",
+                "precio": "50.00",
+                "cantidad": 1
+            }
+        ]
+    }
+]

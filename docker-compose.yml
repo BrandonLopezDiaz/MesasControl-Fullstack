@@ -1,0 +1,53 @@
+version: '3.9'
+
+services:
+
+  db:
+    image: postgres:15
+    container_name: pedidos_db
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - pedidos_net
+
+  backend:
+    build:
+      context: ./backend
+    container_name: pedidos_backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    env_file:
+      - .env
+    working_dir: /code
+    networks:
+      - pedidos_net
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: pedidos_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    stdin_open: true
+    tty: true
+    networks:
+      - pedidos_net
+
+volumes:
+  postgres_data:
+
+networks:
+  pedidos_net:
+    driver: bridge

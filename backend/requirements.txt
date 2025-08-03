@@ -1,0 +1,16 @@
+asgiref==3.9.1
+autopep8==2.3.2
+Django==4.2.23
+django-cors-headers==4.7.0
+django-filter==25.1
+djangorestframework==3.16.0
+importlib_metadata==8.7.0
+Markdown==3.8.2
+psycopg2-binary==2.9.10
+pycodestyle==2.14.0
+Pygments==2.19.2
+python-decouple==3.8
+sqlparse==0.5.3
+tomli==2.2.1
+typing_extensions==4.14.1
+zipp==3.23.0
