@@ -27,3 +27,7 @@ class Factura(models.Model):
 
     def __str__(self):
         return f'Factura #{self.id} - Pedido #{self.pedido.id}'
+    
+class Extras(models.Model):
+    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name='extras')
+    nombre_mesa = models.CharField(max_length=100)

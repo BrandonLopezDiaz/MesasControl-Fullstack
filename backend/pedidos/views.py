@@ -1,8 +1,8 @@
 from rest_framework.viewsets import ModelViewSet 
 from filters.mixins import FiltersMixin
 from .filters import PedidoFilter
-from .models import Pedido, ProductoPedido, Factura
-from .serializers import PedidoSerializer, ProductoPedidoSerializer, PedidoDetailSerializer, FacturaSerializer
+from .models import Pedido, ProductoPedido, Factura, Extras
+from .serializers import PedidoSerializer, ProductoPedidoSerializer, PedidoDetailSerializer, FacturaSerializer, ExtrasSerializer, ExtrasPedidosSerializer
 
 # Create your views here.
 class PedidoViewSet(ModelViewSet):
@@ -33,4 +33,14 @@ class PedidoDetailViewSet(PedidoFilter, FiltersMixin, ModelViewSet):
             return queryset.filter(id__in=queryset.values_list('id', flat=True)[:1])
 
         return queryset
+
+class ExtrasViewSet(ModelViewSet):
+    queryset = Extras.objects.all()
+    serializer_class = ExtrasSerializer
+    http_method_names = ['get', 'post', 'put', 'delete']
+
+class ExtrasPedidosViewSet(ModelViewSet):
+    queryset = Pedido.objects.all()
+    serializer_class = ExtrasPedidosSerializer
+    http_method_names = ['get', 'post', 'put', 'delete']
 

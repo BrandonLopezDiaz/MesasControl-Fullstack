@@ -2,6 +2,10 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { fetchProductos, postPedido, updatePedido } from "../api/ListaProductos";
+import { TopBar, SectionHead, StatusBar, ImgPlaceholder, Stepper } from "../components/DesignPrimitives";
+import "../design-system.css";
+
+const CATS = ["Todos", "Caldos", "Tacos", "Bebidas", "Extras"];
 
 const AgregarProductos = () => {
   const { mesaId } = useParams();
@@ -12,13 +16,14 @@ const AgregarProductos = () => {
   const [productos, setProductos] = useState([]);
   const [cantidades, setCantidades] = useState({});
   const [enviando, setEnviando] = useState(false);
+  const [catActiva, setCatActiva] = useState("Todos");
 
   useEffect(() => {
     (async () => {
       const datos = await fetchProductos();
-      const init = Object.fromEntries(datos.map(p => [p.id, 0]));
+      const init = Object.fromEntries(datos.map((p) => [p.id, 0]));
       if (initialPedido?.productos_pedidos) {
-        initialPedido.productos_pedidos.forEach(item => {
+        initialPedido.productos_pedidos.forEach((item) => {
           init[item.producto] = item.cantidad;
         });
       }
@@ -28,13 +33,13 @@ const AgregarProductos = () => {
   }, [initialPedido]);
 
   const cambiarCantidad = (pid, delta) =>
-    setCantidades(prev => ({ ...prev, [pid]: Math.max(0, prev[pid] + delta) }));
+    setCantidades((prev) => ({ ...prev, [pid]: Math.max(0, prev[pid] + delta) }));
 
   const handleAgregar = async () => {
-    const seleccionados = productos.filter(p => cantidades[p.id] > 0);
+    const seleccionados = productos.filter((p) => cantidades[p.id] > 0);
     if (!seleccionados.length) return;
 
-    const productos_pedidos = seleccionados.map(p => ({
+    const productos_pedidos = seleccionados.map((p) => ({
       producto: p.id,
       producto_nombre: p.nombre,
       cantidad: cantidades[p.id],
@@ -48,9 +53,7 @@ const AgregarProductos = () => {
       productos_pedidos,
     };
 
-    console.log("Datos a enviar:", JSON.stringify(payload, null, 2));
     setEnviando(true);
-
     try {
       const result = initialPedido?.id
         ? await updatePedido(initialPedido.id, payload)
@@ -63,124 +66,104 @@ const AgregarProductos = () => {
     }
   };
 
+  const productosFiltrados =
+    catActiva === "Todos"
+      ? productos
+      : productos.filter((p) => p.categoria === catActiva);
+
+  const totalSeleccionados = productos
+    .filter((p) => cantidades[p.id] > 0)
+    .reduce((s, p) => s + cantidades[p.id] * parseFloat(p.precio), 0);
+
+  const numSeleccionados = Object.values(cantidades).reduce((s, v) => s + v, 0);
+
   return (
-    <div
-      style={{
-        padding: "1rem",
-        minHeight: "100vh",
-        backgroundColor: "#d1ffe6",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-      }}
-    >
-      <button
-        onClick={() => navigate(-1)}
-        style={{
-          alignSelf: "flex-start",
-          background: "#ccc",
-          border: "none",
-          padding: "0.4rem 1rem",
-          borderRadius: "8px",
-          fontWeight: "bold",
-          cursor: "pointer",
-          marginBottom: "0.5rem",
-        }}
-      >
-        ← Volver
-      </button>
+    <div className="device">
+      <div className="device__inner">
+        <StatusBar title="Agregar" />
 
-      <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>
-        Mesa {mesaId}
-      </h1>
-      <h2 style={{ fontSize: "1.5rem", marginBottom: "1rem" }}>
-        Agregar productos:
-      </h2>
+        <div className="device__body no-tabbar">
+          <div className="page">
+            {/* TopBar con volver */}
+            <TopBar
+              back={() => navigate(-1)}
+              title="Agregar"
+              subtitle={`a Mesa ${mesaId}`}
+            />
 
-      <div style={{ width: "100%", maxWidth: "400px" }}>
-        {productos.map(p => (
-          <div
-            key={p.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "0.5rem",
-              background: "#c9f7d1",
-              padding: "0.5rem",
-              borderRadius: "8px",
-            }}
-          >
-            <div style={{ display: "flex", flex: 1, alignItems: "center" }}>
-              <span style={{ fontWeight: "bold", flex: 1 }}>
-                {p.nombre}
-              </span>
-              <span style={{ width: "60px", textAlign: "right" }}>
-                ${parseFloat(p.precio).toFixed(2)}
-              </span>
+            {/* Buscador placeholder */}
+            <div className="wf-box pill" style={{ padding: "8px 14px" }}>
+              <div className="row">
+                <span style={{ fontSize: 16 }}>🔍</span>
+                <span className="wf-sm">buscar producto…</span>
+              </div>
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                background: "#fff",
-                borderRadius: "16px",
-                overflow: "hidden",
-                marginLeft: "10px",
-              }}
-            >
-              <button
-                onClick={() => cambiarCantidad(p.id, -1)}
+
+            {/* Filtros de categoría */}
+            <div className="row" style={{ gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+              {CATS.map((c) => (
+                <span
+                  key={c}
+                  className={`wf-chip ${catActiva === c ? "green" : ""}`}
+                  style={{ flexShrink: 0, cursor: "pointer" }}
+                  onClick={() => setCatActiva(c)}
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
+
+            {/* Lista de productos */}
+            <div className="col">
+              {productosFiltrados.map((p) => (
+                <div key={p.id} className="wf-box" style={{ padding: 10 }}>
+                  <div className="row" style={{ gap: 10 }}>
+                    <ImgPlaceholder w={48} h={48} label="" />
+                    <div style={{ flex: 1 }}>
+                      <div className="wf-h3">{p.nombre}</div>
+                      <div className="wf-sm">{p.categoria || "General"}</div>
+                    </div>
+                    <div className="col" style={{ alignItems: "flex-end", gap: 6 }}>
+                      <span className="wf-h3">${parseFloat(p.precio).toFixed(2)}</span>
+                      <Stepper
+                        value={cantidades[p.id] ?? 0}
+                        onChange={(v) => setCantidades((prev) => ({ ...prev, [p.id]: v }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer de envío — solo visible si hay algo seleccionado */}
+            {numSeleccionados > 0 && (
+              <div
+                className="wf-box bold"
                 style={{
-                  background: "#ff6b6b",
-                  border: "none",
-                  color: "#fff",
-                  width: "32px",
-                  height: "32px",
-                  fontSize: "1.2rem",
-                  cursor: "pointer",
+                  padding: 12,
+                  background: "var(--sj-cream)",
+                  borderColor: "var(--sj-gold-d)",
+                  borderStyle: "dashed",
                 }}
               >
-                –
-              </button>
-              <span style={{ width: "32px", textAlign: "center" }}>
-                {cantidades[p.id]}
-              </span>
-              <button
-                onClick={() => cambiarCantidad(p.id, 1)}
-                style={{
-                  background: "#4d9cff",
-                  border: "none",
-                  color: "#fff",
-                  width: "32px",
-                  height: "32px",
-                  fontSize: "1.2rem",
-                  cursor: "pointer",
-                }}
-              >
-                +
-              </button>
-            </div>
+                <div className="between">
+                  <div>
+                    <div className="wf-h3">{numSeleccionados} productos</div>
+                    <div className="wf-sm">${totalSeleccionados.toFixed(2)} · pendiente de enviar</div>
+                  </div>
+                  <button
+                    className="wf-btn primary"
+                    disabled={enviando}
+                    onClick={handleAgregar}
+                  >
+                    {enviando ? "Enviando…" : "Agregar productos"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        ))}
+        </div>
       </div>
-
-      <button
-        onClick={handleAgregar}
-        disabled={enviando}
-        style={{
-          marginTop: "1rem",
-          background: enviando ? "#a0eebb" : "#00ff87",
-          border: "1px solid #009A8D",
-          borderRadius: "24px",
-          padding: "0.7rem 2rem",
-          fontWeight: "bold",
-          cursor: enviando ? "not-allowed" : "pointer",
-          fontSize: "1.1rem",
-          opacity: enviando ? 0.7 : 1,
-        }}
-      >
-        {enviando ? "Enviando…" : "Agregar productos"}
-      </button>
     </div>
   );
 };
