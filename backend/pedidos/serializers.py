@@ -65,16 +65,26 @@ class PedidoDetailSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
 
+        # Keep listo_cocina state for existing products
+        existentes = {
+            pp.producto_id: pp.listo_cocina
+            for pp in instance.productos_pedidos.all()
+        }
+
         instance.productos_pedidos.all().delete()
 
         total = 0
         for prod_data in productos_data:
+            producto_id = prod_data['producto'].id
+            # Preserve listo_cocina if product was already in the order
+            listo = existentes.get(producto_id, False)
             pp = ProductoPedido.objects.create(
                 pedido=instance,
                 producto=prod_data['producto'],
                 producto_nombre=prod_data.get('producto_nombre', prod_data['producto'].nombre),
                 cantidad=prod_data['cantidad'],
                 subtotal=prod_data['subtotal'],
+                listo_cocina=listo,
             )
             total += pp.subtotal
 

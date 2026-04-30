@@ -54,15 +54,11 @@ function Ventas() {
   useEffect(() => { load(); }, []);
 
   const filtrados = pedidos.filter(p => {
-    const fecha = new Date(p.fecha_creacion);
-    if (desde) {
-      const d = new Date(desde); d.setHours(0,0,0,0);
-      if (fecha < d) return false;
-    }
-    if (hasta) {
-      const h = new Date(hasta); h.setHours(23,59,59,999);
-      if (fecha > h) return false;
-    }
+    // fecha_creacion comes as ISO string — compare as local date string
+    const fechaLocal = new Date(p.fecha_creacion)
+      .toLocaleDateString("en-CA"); // "YYYY-MM-DD" in local tz
+    if (desde && fechaLocal < desde) return false;
+    if (hasta && fechaLocal > hasta) return false;
     return true;
   });
 

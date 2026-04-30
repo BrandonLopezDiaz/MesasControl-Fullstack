@@ -123,9 +123,9 @@ export default function Cocina() {
                 </span>
               </div>
 
-              {/* Products */}
+              {/* Products — only show pending ones */}
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {pedido.productos_pedidos.map(pp => (
+                {pedido.productos_pedidos.filter(pp => !pp.listo_cocina).map(pp => (
                   <div
                     key={pp.id}
                     className="between"
@@ -133,26 +133,20 @@ export default function Cocina() {
                       padding: "6px 8px",
                       borderRadius: 8,
                       border: "1.5px solid var(--sj-line)",
-                      background: pp.listo_cocina ? "var(--sj-green-l)" : "var(--sj-cream)",
-                      opacity: pp.listo_cocina ? 0.55 : 1,
+                      background: "var(--sj-cream)",
                     }}
                   >
                     <div>
                       <span className="wf-h3" style={{ fontSize: 17 }}>{pp.producto_nombre}</span>
                       <span className="wf-sm" style={{ marginLeft: 6 }}>× {pp.cantidad}</span>
                     </div>
-                    {pp.listo_cocina
-                      ? <span style={{ color: "var(--sj-green-d)", fontSize: 20 }}>✓</span>
-                      : (
-                        <button
-                          className="wf-btn sm"
-                          style={{ padding: "2px 10px", fontSize: 14 }}
-                          onClick={() => marcarProductoListo(pp.id)}
-                        >
-                          ✓ listo
-                        </button>
-                      )
-                    }
+                    <button
+                      className="wf-btn sm"
+                      style={{ padding: "2px 10px", fontSize: 14 }}
+                      onClick={() => marcarProductoListo(pp.id)}
+                    >
+                      ✓ listo
+                    </button>
                   </div>
                 ))}
               </div>
