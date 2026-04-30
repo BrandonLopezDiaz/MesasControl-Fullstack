@@ -86,28 +86,26 @@ WSGI_APPLICATION = "localback.wsgi.application"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 
-# IN_DOCKER = os.path.exists('/.dockerenv')
+IN_DOCKER = os.path.exists('/.dockerenv')
 
-# Configuración original comentada para servidor:
-# DATABASES = {
-#     "default": dj_database_url.config(
-#         default=os.environ.get("DATABASE_URL", "postgres://user:password@localhost:5432/pedidos_db"),
-#         conn_max_age=600,
-#         ssl_require=False
-#     )
-# }
+_DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# Configuración para desarrollo local usando variables de entorno del .env
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "pedidos_db"),
-        "USER": os.environ.get("DB_USER", "pedidos_user"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "pedidos_pass"),
-        "HOST": os.environ.get("DB_HOST", "localhost"),
-        "PORT": os.environ.get("DB_PORT", "5432"),
+if _DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            _DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=False,
+        )
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
