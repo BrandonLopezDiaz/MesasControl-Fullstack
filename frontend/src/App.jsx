@@ -1,5 +1,6 @@
 // src/App.jsx
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
+import { ThemeProvider } from "./components/ThemeProvider";
 import Mesas from "./pages/Mesas";
 import AgregarProductos from "./pages/AgregarProducto";
 import ComandaCliente from "./pages/ComandaCliente";
@@ -55,19 +56,21 @@ function NavBar() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <div style={{ paddingBottom: 64 }}>
-        <Routes>
-          <Route path="/" element={<Mesas />} />
-          <Route path="/mesa/:mesaId/agregar" element={<AgregarProductos />} />
-          <Route path="/mesa/:mesaId/comandaCliente" element={<ComandaCliente />} />
-          <Route path="/cocina" element={<Cocina />} />
-          <Route path="/finanzas" element={<Finanzas />} />
-          <Route path="/catalogo" element={<Catalogo />} />
-        </Routes>
-        <NavBar />
-      </div>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <div style={{ paddingBottom: 64 }}>
+          <Routes>
+            <Route path="/" element={<Mesas />} />
+            <Route path="/mesa/:mesaId/agregar" element={<AgregarProductos />} />
+            <Route path="/mesa/:mesaId/comandaCliente" element={<ComandaCliente />} />
+            <Route path="/cocina" element={<Cocina />} />
+            <Route path="/finanzas" element={<Finanzas />} />
+            <Route path="/catalogo" element={<Catalogo />} />
+          </Routes>
+          <NavBar />
+        </div>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

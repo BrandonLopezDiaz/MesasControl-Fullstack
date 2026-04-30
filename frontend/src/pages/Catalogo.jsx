@@ -4,22 +4,25 @@ import {
   fetchProductos, createProducto, updateProducto, deleteProducto,
   fetchConfiguraciones, createConfiguracion, updateConfiguracion, deleteConfiguracion,
 } from "../api/ListaProductos";
+import { useTheme, TEMAS } from "../components/ThemeProvider";
 
-const SECCION_OPTS = ["Productos", "Configuraciones"];
+const SECCION_OPTS = [
+  { id: "productos",       label: "🥘 Productos" },
+  { id: "configuraciones", label: "⚙️ Configuraciones" },
+  { id: "temas",           label: "🎨 Temas" },
+];
 
 const emptyProducto = { nombre: "", precio: "", categoria: "", activo: true, imagen: "" };
-const emptyConfig = { clave: "", valor: "", descripcion: "" };
+const emptyConfig   = { clave: "", valor: "", descripcion: "" };
 
 export default function Catalogo() {
-  const [seccion, setSeccion] = useState("Productos");
+  const [seccion, setSeccion] = useState("productos");
 
-  // Productos state
   const [productos, setProductos] = useState([]);
   const [busqueda, setBusqueda] = useState("");
-  const [editP, setEditP] = useState(null); // null = no modal, {} = nuevo, {id,...} = editar
+  const [editP, setEditP] = useState(null);
   const [formP, setFormP] = useState(emptyProducto);
 
-  // Config state
   const [configs, setConfigs] = useState([]);
   const [editC, setEditC] = useState(null);
   const [formC, setFormC] = useState(emptyConfig);
@@ -27,55 +30,51 @@ export default function Catalogo() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const { theme, setTheme } = useTheme();
+
   useEffect(() => { loadProductos(); loadConfigs(); }, []);
 
   const loadProductos = async () => setProductos(await fetchProductos().catch(() => []));
-  const loadConfigs = async () => setConfigs(await fetchConfiguraciones().catch(() => []));
+  const loadConfigs   = async () => setConfigs(await fetchConfiguraciones().catch(() => []));
 
-  /* ─── Productos ─── */
-  const openNewP = () => { setFormP(emptyProducto); setEditP({}); setError(""); };
+  /* ── Productos ── */
+  const openNewP  = () => { setFormP(emptyProducto); setEditP({}); setError(""); };
   const openEditP = (p) => { setFormP({ nombre: p.nombre, precio: p.precio, categoria: p.categoria || "", activo: p.activo, imagen: p.imagen || "" }); setEditP(p); setError(""); };
-  const closeP = () => setEditP(null);
+  const closeP    = () => setEditP(null);
 
   const saveP = async () => {
     if (!formP.nombre.trim() || !formP.precio) { setError("Nombre y precio son requeridos."); return; }
     setSaving(true);
     try {
-      if (editP.id) await updateProducto(editP.id, formP);
-      else await createProducto(formP);
-      await loadProductos();
-      closeP();
+      editP.id ? await updateProducto(editP.id, formP) : await createProducto(formP);
+      await loadProductos(); closeP();
     } catch { setError("Error al guardar."); }
     finally { setSaving(false); }
   };
 
   const delP = async (p) => {
     if (!window.confirm(`¿Eliminar "${p.nombre}"?`)) return;
-    await deleteProducto(p.id);
-    loadProductos();
+    await deleteProducto(p.id); loadProductos();
   };
 
-  /* ─── Configs ─── */
-  const openNewC = () => { setFormC(emptyConfig); setEditC({}); setError(""); };
+  /* ── Configs ── */
+  const openNewC  = () => { setFormC(emptyConfig); setEditC({}); setError(""); };
   const openEditC = (c) => { setFormC({ clave: c.clave, valor: c.valor, descripcion: c.descripcion }); setEditC(c); setError(""); };
-  const closeC = () => setEditC(null);
+  const closeC    = () => setEditC(null);
 
   const saveC = async () => {
     if (!formC.clave.trim() || !formC.valor.trim()) { setError("Clave y valor son requeridos."); return; }
     setSaving(true);
     try {
-      if (editC.id) await updateConfiguracion(editC.id, formC);
-      else await createConfiguracion(formC);
-      await loadConfigs();
-      closeC();
+      editC.id ? await updateConfiguracion(editC.id, formC) : await createConfiguracion(formC);
+      await loadConfigs(); closeC();
     } catch { setError("Error al guardar."); }
     finally { setSaving(false); }
   };
 
   const delC = async (c) => {
     if (!window.confirm(`¿Eliminar config "${c.clave}"?`)) return;
-    await deleteConfiguracion(c.id);
-    loadConfigs();
+    await deleteConfiguracion(c.id); loadConfigs();
   };
 
   const productosFiltrados = productos.filter(p =>
@@ -83,7 +82,6 @@ export default function Catalogo() {
     (p.categoria || "").toLowerCase().includes(busqueda.toLowerCase())
   );
 
-  /* Group productos by category */
   const porCategoria = productosFiltrados.reduce((acc, p) => {
     const cat = p.categoria || "Sin categoría";
     if (!acc[cat]) acc[cat] = [];
@@ -92,67 +90,53 @@ export default function Catalogo() {
   }, {});
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--sj-cream)" }}>
+    <div className="sidebar-layout">
       {/* Sidebar */}
-      <aside style={{
-        width: 200, flexShrink: 0,
-        background: "var(--sj-paper)",
-        borderRight: "2px solid var(--sj-line)",
-        padding: "20px 0",
-      }}>
-        <div className="wf-h2" style={{ padding: "0 16px 16px", borderBottom: "1.5px dashed var(--sj-line)" }}>
-          Catálogos
-        </div>
+      <aside className="sidebar">
+        <div className="sidebar__title wf-h2">Catálogos</div>
         {SECCION_OPTS.map(s => (
           <div
-            key={s}
-            onClick={() => setSeccion(s)}
-            style={{
-              padding: "12px 16px",
-              cursor: "pointer",
-              fontFamily: "'Patrick Hand', cursive",
-              fontSize: 18,
-              borderLeft: seccion === s ? "4px solid var(--sj-green)" : "4px solid transparent",
-              background: seccion === s ? "var(--sj-green-l)" : "transparent",
-              color: seccion === s ? "var(--sj-green-d)" : "var(--sj-ink)",
-            }}
+            key={s.id}
+            className={`sidebar__item ${seccion === s.id ? "active" : ""}`}
+            onClick={() => setSeccion(s.id)}
           >
-            {s === "Productos" ? "🥘 " : "⚙️ "}{s}
+            {s.label}
           </div>
         ))}
       </aside>
 
       {/* Main */}
-      <main style={{ flex: 1, padding: 24 }}>
-        {seccion === "Productos" && (
+      <main className="sidebar-main">
+
+        {/* ── Productos ── */}
+        {seccion === "productos" && (
           <>
-            <div className="between" style={{ marginBottom: 16 }}>
+            <div className="between" style={{ marginBottom: 14 }}>
               <div className="wf-h1">Productos</div>
-              <button className="wf-btn primary" onClick={openNewP}>+ Nuevo producto</button>
+              <button className="wf-btn primary" onClick={openNewP}>+ Nuevo</button>
             </div>
             <input
               className="wf-search"
               placeholder="🔍 buscar por nombre o categoría…"
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              style={{ marginBottom: 16 }}
+              style={{ marginBottom: 14 }}
             />
-
             {Object.entries(porCategoria).map(([cat, prods]) => (
-              <div key={cat} style={{ marginBottom: 20 }}>
-                <div className="wf-sm" style={{ marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{cat}</div>
+              <div key={cat} style={{ marginBottom: 18 }}>
+                <div className="wf-sm" style={{ marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>{cat}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {prods.map(p => (
-                    <div key={p.id} className="wf-box" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                    <div key={p.id} className="wf-box" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                       {p.imagen
                         ? <img src={p.imagen} alt={p.nombre} style={{ width: 40, height: 40, borderRadius: 6, objectFit: "cover", border: "1px solid var(--sj-line)", flexShrink: 0 }} />
                         : <div style={{ width: 40, height: 40, borderRadius: 6, background: "var(--sj-cream-2)", border: "1px solid var(--sj-line)", flexShrink: 0 }} />
                       }
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <span className="wf-h3">{p.nombre}</span>
                         {!p.activo && <span className="wf-chip" style={{ marginLeft: 8, fontSize: 12 }}>inactivo</span>}
                       </div>
-                      <span className="wf-h3" style={{ color: "var(--sj-green-d)" }}>${parseFloat(p.precio).toFixed(2)}</span>
+                      <span className="wf-h3" style={{ color: "var(--sj-green-d)", flexShrink: 0 }}>${parseFloat(p.precio).toFixed(2)}</span>
                       <button className="wf-btn sm ghost" onClick={() => openEditP(p)}>editar</button>
                       <button className="wf-btn sm danger" onClick={() => delP(p)}>✕</button>
                     </div>
@@ -163,21 +147,22 @@ export default function Catalogo() {
           </>
         )}
 
-        {seccion === "Configuraciones" && (
+        {/* ── Configuraciones ── */}
+        {seccion === "configuraciones" && (
           <>
-            <div className="between" style={{ marginBottom: 16 }}>
+            <div className="between" style={{ marginBottom: 14 }}>
               <div className="wf-h1">Configuraciones</div>
-              <button className="wf-btn primary" onClick={openNewC}>+ Nueva config</button>
+              <button className="wf-btn primary" onClick={openNewC}>+ Nueva</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {configs.map(c => (
                 <div key={c.id} className="wf-box" style={{ padding: "12px 14px" }}>
-                  <div className="between">
-                    <div>
+                  <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
+                    <div style={{ minWidth: 0 }}>
                       <div className="wf-h3">{c.clave}</div>
                       <div className="wf-sm">{c.descripcion}</div>
                     </div>
-                    <div className="row" style={{ gap: 8 }}>
+                    <div className="row" style={{ gap: 8, flexShrink: 0 }}>
                       <span className="wf-chip gold" style={{ fontFamily: "'Caveat',cursive", fontSize: 18 }}>{c.valor}</span>
                       <button className="wf-btn sm ghost" onClick={() => openEditC(c)}>editar</button>
                       <button className="wf-btn sm danger" onClick={() => delC(c)}>✕</button>
@@ -188,12 +173,67 @@ export default function Catalogo() {
             </div>
           </>
         )}
+
+        {/* ── Temas ── */}
+        {seccion === "temas" && (
+          <>
+            <div className="wf-h1" style={{ marginBottom: 6 }}>Temas</div>
+            <div className="wf-sm" style={{ marginBottom: 16 }}>Cambia la paleta de colores del sistema. El cambio se aplica al instante.</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: 12 }}>
+              {TEMAS.map(t => (
+                <div
+                  key={t.id}
+                  className="wf-box bold"
+                  onClick={() => setTheme(t.id)}
+                  style={{
+                    padding: 16,
+                    cursor: "pointer",
+                    borderColor: theme === t.id ? "var(--sj-green)" : "var(--sj-line)",
+                    background: theme === t.id ? "var(--sj-green-l)" : "var(--sj-paper)",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  <div style={{ fontSize: 36, marginBottom: 6 }}>{t.emoji}</div>
+                  <div className="wf-h3">{t.label}</div>
+                  <div className="wf-sm" style={{ marginTop: 2 }}>{t.desc}</div>
+                  {theme === t.id && (
+                    <div className="wf-chip green" style={{ marginTop: 8, fontSize: 13 }}>✓ Activo</div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Color swatches preview */}
+            <div className="wf-h3" style={{ marginTop: 20, marginBottom: 8 }}>Colores del tema actual</div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              {[
+                { label: "Principal", bg: "var(--sj-green)" },
+                { label: "Oscuro",    bg: "var(--sj-green-d)" },
+                { label: "Claro",     bg: "var(--sj-green-l)", border: true },
+                { label: "Dorado",    bg: "var(--sj-gold)" },
+                { label: "Rojo",      bg: "var(--sj-red)" },
+                { label: "Papel",     bg: "var(--sj-paper)", border: true },
+              ].map(s => (
+                <div key={s.label} style={{ textAlign: "center" }}>
+                  <div style={{
+                    width: 48, height: 48,
+                    background: s.bg,
+                    borderRadius: 10,
+                    border: s.border ? "1.5px solid var(--sj-line)" : "none",
+                    marginBottom: 4,
+                  }} />
+                  <div className="wf-sm">{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </main>
 
       {/* Modal Producto */}
       {editP !== null && (
         <Modal title={editP.id ? "Editar producto" : "Nuevo producto"} onClose={closeP}>
-          {error && <div style={{ color: "var(--sj-red)", marginBottom: 8, fontFamily: "'Patrick Hand', cursive" }}>{error}</div>}
+          {error && <div style={{ color: "var(--sj-red)", marginBottom: 8, fontFamily: "'Patrick Hand',cursive" }}>{error}</div>}
           <Field label="Nombre">
             <input className="wf-input" value={formP.nombre} onChange={e => setFormP(f => ({ ...f, nombre: e.target.value }))} />
           </Field>
@@ -204,29 +244,24 @@ export default function Catalogo() {
             <input className="wf-input" value={formP.categoria} onChange={e => setFormP(f => ({ ...f, categoria: e.target.value }))} placeholder="Caldos, Bebidas…" />
           </Field>
           <Field label="Imagen del producto">
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               {formP.imagen && (
                 <img src={formP.imagen} alt="preview" style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover", border: "1.5px solid var(--sj-line)" }} />
               )}
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  id="img-upload"
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <input type="file" accept="image/*" style={{ display: "none" }} id="img-upload"
                   onChange={e => {
-                    const file = e.target.files[0];
-                    if (!file) return;
+                    const file = e.target.files[0]; if (!file) return;
                     const reader = new FileReader();
                     reader.onload = ev => setFormP(f => ({ ...f, imagen: ev.target.result }));
                     reader.readAsDataURL(file);
                   }}
                 />
                 <label htmlFor="img-upload" className="wf-btn sm ghost" style={{ cursor: "pointer" }}>
-                  📷 {formP.imagen ? "Cambiar imagen" : "Subir imagen"}
+                  📷 {formP.imagen ? "Cambiar" : "Subir imagen"}
                 </label>
                 {formP.imagen && (
-                  <button className="wf-btn sm danger" style={{ marginLeft: 6 }} onClick={() => setFormP(f => ({ ...f, imagen: "" }))}>quitar</button>
+                  <button className="wf-btn sm danger" onClick={() => setFormP(f => ({ ...f, imagen: "" }))}>quitar</button>
                 )}
               </div>
             </div>
@@ -247,7 +282,7 @@ export default function Catalogo() {
       {/* Modal Config */}
       {editC !== null && (
         <Modal title={editC.id ? "Editar configuración" : "Nueva configuración"} onClose={closeC}>
-          {error && <div style={{ color: "var(--sj-red)", marginBottom: 8, fontFamily: "'Patrick Hand', cursive" }}>{error}</div>}
+          {error && <div style={{ color: "var(--sj-red)", marginBottom: 8, fontFamily: "'Patrick Hand',cursive" }}>{error}</div>}
           <Field label="Clave (sin espacios)">
             <input className="wf-input" value={formC.clave} onChange={e => setFormC(f => ({ ...f, clave: e.target.value }))} disabled={!!editC.id} />
           </Field>
@@ -269,13 +304,8 @@ export default function Catalogo() {
 
 function Modal({ title, onClose, children }) {
   return (
-    <div style={{
-      position: "fixed", inset: 0,
-      background: "rgba(0,0,0,0.4)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      zIndex: 1000,
-    }}>
-      <div className="wf-box bold fade-in" style={{ width: "min(420px,95vw)", padding: 24 }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+      <div className="wf-box bold fade-in" style={{ width: "min(440px,95vw)", padding: 24, maxHeight: "90vh", overflowY: "auto" }}>
         <div className="between" style={{ marginBottom: 16 }}>
           <div className="wf-h2">{title}</div>
           <button className="wf-btn sm ghost" onClick={onClose}>✕</button>

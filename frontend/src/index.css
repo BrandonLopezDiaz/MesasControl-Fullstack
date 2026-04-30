@@ -1,10 +1,11 @@
 /* ============================================================
    MILOCAL — Design System (adapted from mobile wireframes)
-   Paleta San Judas Tadeo
+   Paleta San Judas Tadeo + temas
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Patrick+Hand&family=Kalam:wght@300;400;700&family=Inter:wght@400;500;600;700&display=swap');
 
+/* ── Tema: San Judas Tadeo (default) ── */
 :root {
   --sj-green:    oklch(0.55 0.13 155);
   --sj-green-d:  oklch(0.42 0.12 155);
@@ -24,6 +25,54 @@
   --r-sm: 6px;
   --r-md: 12px;
   --r-lg: 18px;
+}
+
+/* ── Tema: Noche ── */
+[data-theme="noche"] {
+  --sj-green:    oklch(0.60 0.14 155);
+  --sj-green-d:  oklch(0.75 0.15 155);
+  --sj-green-l:  oklch(0.22 0.05 155);
+  --sj-gold:     oklch(0.70 0.13 80);
+  --sj-gold-d:   oklch(0.82 0.14 80);
+  --sj-red:      oklch(0.60 0.18 25);
+  --sj-cream:    oklch(0.16 0.01 240);
+  --sj-cream-2:  oklch(0.20 0.01 240);
+  --sj-ink:      oklch(0.92 0.01 240);
+  --sj-ink-2:    oklch(0.65 0.01 240);
+  --sj-paper:    oklch(0.13 0.01 240);
+  --sj-line:     oklch(0.55 0.01 240);
+}
+
+/* ── Tema: Tacos (naranja/rojo) ── */
+[data-theme="tacos"] {
+  --sj-green:    oklch(0.60 0.18 40);
+  --sj-green-d:  oklch(0.45 0.18 38);
+  --sj-green-l:  oklch(0.94 0.06 50);
+  --sj-gold:     oklch(0.80 0.14 65);
+  --sj-gold-d:   oklch(0.64 0.14 60);
+  --sj-red:      oklch(0.48 0.20 20);
+  --sj-cream:    oklch(0.98 0.015 70);
+  --sj-cream-2:  oklch(0.95 0.02 65);
+  --sj-ink:      oklch(0.22 0.02 40);
+  --sj-ink-2:    oklch(0.45 0.02 40);
+  --sj-paper:    oklch(0.99 0.008 65);
+  --sj-line:     oklch(0.30 0.03 40);
+}
+
+/* ── Tema: Mar (azul) ── */
+[data-theme="mar"] {
+  --sj-green:    oklch(0.52 0.16 220);
+  --sj-green-d:  oklch(0.38 0.15 225);
+  --sj-green-l:  oklch(0.92 0.05 220);
+  --sj-gold:     oklch(0.75 0.12 200);
+  --sj-gold-d:   oklch(0.58 0.13 205);
+  --sj-red:      oklch(0.52 0.16 25);
+  --sj-cream:    oklch(0.97 0.012 220);
+  --sj-cream-2:  oklch(0.93 0.02 220);
+  --sj-ink:      oklch(0.22 0.03 230);
+  --sj-ink-2:    oklch(0.48 0.03 230);
+  --sj-paper:    oklch(0.98 0.006 220);
+  --sj-line:     oklch(0.30 0.02 230);
 }
 
 * { box-sizing: border-box; }
@@ -309,3 +358,128 @@ body {
 .cat-chips::-webkit-scrollbar { display: none; }
 .cat-chips .wf-chip { flex-shrink: 0; cursor: pointer; }
 .cat-chips .wf-chip.active { background: var(--sj-green-l); border-color: var(--sj-green-d); color: var(--sj-green-d); }
+
+/* ---------- Responsive sidebar layout ---------- */
+.sidebar-layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--sj-cream);
+}
+.sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--sj-paper);
+  border-right: 2px solid var(--sj-line);
+  padding: 20px 0;
+  transition: transform 0.25s ease;
+}
+.sidebar__title {
+  padding: 0 16px 14px;
+  border-bottom: 1.5px dashed var(--sj-line);
+}
+.sidebar__item {
+  padding: 12px 16px;
+  cursor: pointer;
+  font-family: 'Patrick Hand', cursive;
+  font-size: 18px;
+  transition: background 0.1s;
+}
+.sidebar__item.active {
+  border-left: 4px solid var(--sj-green);
+  background: var(--sj-green-l);
+  color: var(--sj-green-d);
+}
+.sidebar__item:not(.active) {
+  border-left: 4px solid transparent;
+  color: var(--sj-ink);
+}
+.sidebar-main { flex: 1; padding: 20px; overflow: auto; min-width: 0; }
+
+/* Mobile: sidebar becomes a top tab bar */
+@media (max-width: 640px) {
+  .sidebar-layout { flex-direction: column; }
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 2px solid var(--sj-line);
+    padding: 0;
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .sidebar::-webkit-scrollbar { display: none; }
+  .sidebar__title { display: none; }
+  .sidebar__item {
+    padding: 10px 16px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 15px;
+  }
+  .sidebar__item.active {
+    border-left: none;
+    border-bottom: 3px solid var(--sj-green);
+  }
+  .sidebar-main { padding: 14px; }
+}
+
+/* ---------- Custom date picker ---------- */
+.date-picker-wrap { position: relative; display: inline-block; }
+.date-input-btn {
+  font-family: 'Patrick Hand', cursive;
+  font-size: 17px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--sj-line);
+  border-radius: 999px;
+  background: var(--sj-paper);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 2px 2px 0 0 var(--sj-line);
+  min-width: 140px;
+}
+.date-cal {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 200;
+  background: var(--sj-paper);
+  border: 2px solid var(--sj-line);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 4px 6px 0 0 var(--sj-line);
+  width: 280px;
+  animation: fadeIn 0.15s ease-out;
+}
+.date-cal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.date-cal__month { font-family: 'Caveat', cursive; font-size: 20px; font-weight: 700; }
+.date-cal__nav {
+  background: var(--sj-cream-2);
+  border: 1.5px solid var(--sj-line);
+  border-radius: 8px;
+  width: 28px; height: 28px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.date-cal__grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+.date-cal__cell {
+  font-family: 'Patrick Hand', cursive;
+  font-size: 14px;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+.date-cal__cell:hover { background: var(--sj-cream-2); }
+.date-cal__cell.today { font-weight: 700; color: var(--sj-green-d); }
+.date-cal__cell.selected { background: var(--sj-green); color: white; }
+.date-cal__cell.other-month { opacity: 0.3; }
+.date-cal__cell.day-header { cursor: default; font-size: 12px; color: var(--sj-ink-2); font-weight: 600; }

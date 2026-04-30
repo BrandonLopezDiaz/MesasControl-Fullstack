@@ -214,42 +214,62 @@ function ComandaVista({ pedido, mesaId, navigate, total, received, cambio, diner
 /* ── Dividir cuenta ── */
 function DividirCuenta({ pedido, onFinalizar }) {
   const [personas, setPersonas] = useState(2);
-  // asignaciones[personaIdx] = Set de product_pedido ids
+  // asignaciones[ppId][personaIdx] = cantidad asignada (int)
   const [asignaciones, setAsignaciones] = useState({});
+  // dinero recibido por persona
+  const [pagos, setPagos] = useState({});
 
-  const toggleAsignar = (personaIdx, ppId) => {
+  // Build expanded units: for a pp with cantidad=2, show 2 rows
+  const unidades = pedido.productos_pedidos.flatMap(pp => {
+    const precioPorUnidad = parseFloat(pp.subtotal) / pp.cantidad;
+    return Array.from({ length: pp.cantidad }, (_, i) => ({
+      uid: `${pp.id}_${i}`,
+      ppId: pp.id,
+      nombre: pp.producto_nombre,
+      precio: precioPorUnidad,
+      unidadNum: i + 1,
+      totalUnidades: pp.cantidad,
+    }));
+  });
+
+  const getAsignado = (uid) => asignaciones[uid] ?? null; // null = sin asignar
+
+  const asignar = (uid, personaIdx) => {
     setAsignaciones(prev => {
       const next = { ...prev };
-      // Remove from all other personas first
-      for (const k in next) {
-        if (parseInt(k) !== personaIdx) {
-          next[k] = new Set([...(next[k] || [])].filter(id => id !== ppId));
-        }
-      }
-      const set = new Set(next[personaIdx] || []);
-      if (set.has(ppId)) set.delete(ppId);
-      else set.add(ppId);
-      next[personaIdx] = set;
+      next[uid] = prev[uid] === personaIdx ? null : personaIdx; // toggle
       return next;
     });
   };
 
-  const totalPersona = (idx) => {
-    const ids = asignaciones[idx] || new Set();
-    return pedido.productos_pedidos
-      .filter(pp => ids.has(pp.id))
-      .reduce((sum, pp) => sum + parseFloat(pp.subtotal), 0);
+  const totalPersona = (idx) =>
+    unidades
+      .filter(u => asignaciones[u.uid] === idx)
+      .reduce((s, u) => s + u.precio, 0);
+
+  const sinAsignar = unidades.filter(u => asignaciones[u.uid] == null);
+
+  const totalAsignado = unidades
+    .filter(u => asignaciones[u.uid] != null)
+    .reduce((s, u) => s + u.precio, 0);
+
+  const totalGeneral = parseFloat(pedido.factura?.total || 0);
+
+  const cambioPersona = (idx) => {
+    const pagado = parseFloat(pagos[idx]) || 0;
+    return Math.max(0, pagado - totalPersona(idx));
   };
 
-  const totalAsignado = Object.values(asignaciones).reduce((sum, set) => {
-    return sum + pedido.productos_pedidos
-      .filter(pp => set.has(pp.id))
-      .reduce((s, pp) => s + parseFloat(pp.subtotal), 0);
-  }, 0);
+  const quickFor = (total) => {
+    const amounts = [
+      Math.ceil(total / 100) * 100,
+      Math.ceil(total / 100) * 100 + 100,
+      Math.ceil(total / 500) * 500,
+    ].filter((v, i, a) => v >= total && a.indexOf(v) === i).slice(0, 2);
+    return amounts;
+  };
 
-  const sinAsignar = pedido.productos_pedidos.filter(pp => {
-    return !Object.values(asignaciones).some(set => set.has(pp.id));
-  });
+  const PERSONA_COLORS = ["var(--sj-green)", "var(--sj-gold-d)", "var(--sj-red)", "oklch(0.52 0.16 270)", "oklch(0.55 0.14 200)"];
 
   return (
     <>
@@ -260,67 +280,130 @@ function DividirCuenta({ pedido, onFinalizar }) {
           <div className="stepper">
             <button className="minus" onClick={() => setPersonas(p => Math.max(2, p - 1))}>−</button>
             <span className="val">{personas}</span>
-            <button className="plus" onClick={() => setPersonas(p => p + 1)}>+</button>
+            <button className="plus" onClick={() => setPersonas(p => Math.min(8, p + 1))}>+</button>
           </div>
         </div>
       </div>
 
-      {/* Product assignment */}
-      <div className="wf-sm" style={{ marginBottom: 4 }}>Toca una persona para asignar cada producto:</div>
+      {/* Persona legend */}
+      <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+        {Array.from({ length: personas }, (_, i) => (
+          <div key={i} className="row" style={{ gap: 4 }}>
+            <div style={{ width: 14, height: 14, borderRadius: "50%", background: PERSONA_COLORS[i % PERSONA_COLORS.length] }} />
+            <span className="wf-sm">P{i + 1}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Unit assignment */}
+      <div className="wf-sm" style={{ marginBottom: 4 }}>
+        Toca una persona para asignar cada unidad. Productos con cantidad &gt;1 se dividen individualmente:
+      </div>
+
       {pedido.productos_pedidos.map(pp => {
-        const asignadoA = Object.entries(asignaciones).find(([, set]) => set.has(pp.id));
-        const idxAsignado = asignadoA ? parseInt(asignadoA[0]) : null;
+        const ppUnidades = unidades.filter(u => u.ppId === pp.id);
         return (
-          <div key={pp.id} className="wf-box" style={{ padding: "8px 12px" }}>
-            <div className="between" style={{ marginBottom: 6 }}>
-              <div>
-                <span className="wf-h3" style={{ fontSize: 17 }}>{pp.producto_nombre}</span>
-                <span className="wf-sm" style={{ marginLeft: 6 }}>× {pp.cantidad} · ${parseFloat(pp.subtotal).toFixed(2)}</span>
-              </div>
+          <div key={pp.id} className="wf-box" style={{ padding: "10px 12px" }}>
+            <div className="between" style={{ marginBottom: 8 }}>
+              <span className="wf-h3" style={{ fontSize: 17 }}>{pp.producto_nombre}</span>
+              <span className="wf-sm">${(parseFloat(pp.subtotal) / pp.cantidad).toFixed(2)} c/u</span>
             </div>
-            <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-              {Array.from({ length: personas }, (_, i) => (
-                <button
-                  key={i}
-                  onClick={() => toggleAsignar(i, pp.id)}
-                  className="wf-btn sm"
-                  style={{
-                    background: idxAsignado === i ? "var(--sj-green)" : "var(--sj-paper)",
-                    color: idxAsignado === i ? "white" : "var(--sj-ink)",
-                    borderColor: idxAsignado === i ? "var(--sj-green-d)" : "var(--sj-line)",
-                  }}
-                >
-                  P{i + 1}
-                </button>
-              ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {ppUnidades.map(u => {
+                const asignadoA = getAsignado(u.uid);
+                return (
+                  <div key={u.uid} className="between" style={{
+                    padding: "4px 8px",
+                    borderRadius: 8,
+                    background: asignadoA != null ? `${PERSONA_COLORS[asignadoA % PERSONA_COLORS.length]}22` : "var(--sj-cream-2)",
+                    border: `1.5px solid ${asignadoA != null ? PERSONA_COLORS[asignadoA % PERSONA_COLORS.length] : "var(--sj-line)"}`,
+                  }}>
+                    <span className="wf-sm">
+                      unidad {u.unidadNum}/{u.totalUnidades} — ${u.precio.toFixed(2)}
+                    </span>
+                    <div className="row" style={{ gap: 4 }}>
+                      {Array.from({ length: personas }, (_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => asignar(u.uid, i)}
+                          className="wf-btn sm"
+                          style={{
+                            padding: "2px 8px",
+                            fontSize: 14,
+                            background: asignadoA === i ? PERSONA_COLORS[i % PERSONA_COLORS.length] : "var(--sj-paper)",
+                            color: asignadoA === i ? "white" : "var(--sj-ink)",
+                            borderColor: PERSONA_COLORS[i % PERSONA_COLORS.length],
+                          }}
+                        >
+                          P{i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
       })}
 
-      {/* Sin asignar warning */}
       {sinAsignar.length > 0 && (
         <div className="wf-chip red" style={{ padding: "6px 12px", fontSize: 15 }}>
-          ⚠️ {sinAsignar.length} producto(s) sin asignar
+          ⚠️ {sinAsignar.length} unidad(es) sin asignar
         </div>
       )}
 
-      {/* Totals per person */}
-      <div className="wf-h3" style={{ marginTop: 4 }}>Totales por persona</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px,1fr))", gap: 8 }}>
-        {Array.from({ length: personas }, (_, i) => (
-          <div key={i} className="wf-box" style={{ padding: "10px 14px", textAlign: "center" }}>
-            <div className="wf-sm">Persona {i + 1}</div>
-            <div className="wf-h2" style={{ color: "var(--sj-green-d)" }}>${totalPersona(i).toFixed(2)}</div>
-          </div>
-        ))}
+      {/* Per-person payment + cambio */}
+      <div className="wf-h3" style={{ marginTop: 4, marginBottom: 8 }}>Pago por persona</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {Array.from({ length: personas }, (_, i) => {
+          const subtotal = totalPersona(i);
+          const pagado = parseFloat(pagos[i]) || 0;
+          const cambio = cambioPersona(i);
+          const color = PERSONA_COLORS[i % PERSONA_COLORS.length];
+          return (
+            <div key={i} className="wf-box bold" style={{ padding: 12, borderColor: color }}>
+              <div className="between" style={{ marginBottom: 8 }}>
+                <div className="row" style={{ gap: 6 }}>
+                  <div style={{ width: 12, height: 12, borderRadius: "50%", background: color }} />
+                  <span className="wf-h3">Persona {i + 1}</span>
+                </div>
+                <span className="wf-h2" style={{ color: "var(--sj-green-d)" }}>${subtotal.toFixed(2)}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="number"
+                  placeholder="Dinero recibido"
+                  value={pagos[i] || ""}
+                  onChange={e => setPagos(prev => ({ ...prev, [i]: e.target.value }))}
+                  style={{ flex: 1, border: `1.5px solid ${color}`, borderRadius: 10, padding: "6px 10px", fontFamily: "'Caveat',cursive", fontSize: 22, fontWeight: 700, background: "transparent", outline: "none" }}
+                />
+                <span className="wf-sm">recibido</span>
+              </div>
+              {/* Quick amounts */}
+              <div className="row" style={{ gap: 5, marginTop: 6, flexWrap: "wrap" }}>
+                {quickFor(subtotal).map(a => (
+                  <span key={a} className="wf-chip" style={{ cursor: "pointer", fontSize: 14 }} onClick={() => setPagos(prev => ({ ...prev, [i]: String(a) }))}>${a}</span>
+                ))}
+                <span className="wf-chip gold" style={{ cursor: "pointer", fontSize: 14 }} onClick={() => setPagos(prev => ({ ...prev, [i]: String(Math.ceil(subtotal)) }))}>exacto</span>
+              </div>
+              {pagado > 0 && (
+                <div className="between" style={{ marginTop: 8, padding: "6px 10px", borderRadius: 8, background: "oklch(0.97 0.04 85)", border: "1px dashed var(--sj-gold-d)" }}>
+                  <span className="wf-sm">Cambio P{i + 1}</span>
+                  <span className="wf-h3" style={{ color: "var(--sj-gold-d)" }}>${cambio.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
+      {/* Summary */}
       <div className="wf-box bold" style={{ padding: 12, background: "var(--sj-green-l)", borderColor: "var(--sj-green-d)" }}>
         <div className="between">
           <span className="wf-h3">Asignado / Total</span>
           <span className="wf-h2" style={{ color: "var(--sj-green-d)" }}>
-            ${totalAsignado.toFixed(2)} / ${parseFloat(pedido.factura?.total || 0).toFixed(2)}
+            ${totalAsignado.toFixed(2)} / ${totalGeneral.toFixed(2)}
           </span>
         </div>
       </div>
@@ -331,7 +414,7 @@ function DividirCuenta({ pedido, onFinalizar }) {
         disabled={sinAsignar.length > 0}
         onClick={onFinalizar}
       >
-        {sinAsignar.length > 0 ? `Asigna ${sinAsignar.length} producto(s) pendiente(s)` : "Cobrar y cerrar"}
+        {sinAsignar.length > 0 ? `Asigna ${sinAsignar.length} unidad(es) pendiente(s)` : "Cobrar y cerrar"}
       </button>
     </>
   );
