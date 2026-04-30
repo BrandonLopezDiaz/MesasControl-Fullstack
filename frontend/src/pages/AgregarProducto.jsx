@@ -2,10 +2,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { fetchProductos, postPedido, updatePedido } from "../api/ListaProductos";
-import { TopBar, SectionHead, StatusBar, ImgPlaceholder, Stepper } from "../components/DesignPrimitives";
-import "../design-system.css";
-
-const CATS = ["Todos", "Caldos", "Tacos", "Bebidas", "Extras"];
 
 const AgregarProductos = () => {
   const { mesaId } = useParams();
@@ -16,7 +12,7 @@ const AgregarProductos = () => {
   const [productos, setProductos] = useState([]);
   const [cantidades, setCantidades] = useState({});
   const [enviando, setEnviando] = useState(false);
-  const [catActiva, setCatActiva] = useState("Todos");
+  const [busqueda, setBusqueda] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -53,7 +49,9 @@ const AgregarProductos = () => {
       productos_pedidos,
     };
 
+    console.log("Datos a enviar:", JSON.stringify(payload, null, 2));
     setEnviando(true);
+
     try {
       const result = initialPedido?.id
         ? await updatePedido(initialPedido.id, payload)
@@ -66,104 +64,116 @@ const AgregarProductos = () => {
     }
   };
 
-  const productosFiltrados =
-    catActiva === "Todos"
-      ? productos
-      : productos.filter((p) => p.categoria === catActiva);
+  const productosFiltrados = busqueda
+    ? productos.filter((p) =>
+        p.nombre.toLowerCase().includes(busqueda.toLowerCase())
+      )
+    : productos;
 
-  const totalSeleccionados = productos
+  const totalNuevos = productos
     .filter((p) => cantidades[p.id] > 0)
-    .reduce((s, p) => s + cantidades[p.id] * parseFloat(p.precio), 0);
-
-  const numSeleccionados = Object.values(cantidades).reduce((s, v) => s + v, 0);
+    .reduce((sum, p) => sum + cantidades[p.id] * parseFloat(p.precio), 0);
+  const cantNuevos = productos.filter((p) => cantidades[p.id] > 0).length;
 
   return (
-    <div className="device">
-      <div className="device__inner">
-        <StatusBar title="Agregar" />
-
-        <div className="device__body no-tabbar">
-          <div className="page">
-            {/* TopBar con volver */}
-            <TopBar
-              back={() => navigate(-1)}
-              title="Agregar"
-              subtitle={`a Mesa ${mesaId}`}
-            />
-
-            {/* Buscador placeholder */}
-            <div className="wf-box pill" style={{ padding: "8px 14px" }}>
-              <div className="row">
-                <span style={{ fontSize: 16 }}>🔍</span>
-                <span className="wf-sm">buscar producto…</span>
-              </div>
+    <div className="page fade-in">
+      {/* Top bar */}
+      <div className="between" style={{ marginBottom: 12 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <button
+            className="wf-btn sm ghost"
+            onClick={() => navigate(-1)}
+            style={{ padding: "4px 10px", fontSize: 18, lineHeight: 1 }}
+          >
+            ‹ atrás
+          </button>
+          <div>
+            <div className="wf-h1" style={{ fontSize: 28 }}>
+              Agregar
             </div>
-
-            {/* Filtros de categoría */}
-            <div className="row" style={{ gap: 6, overflowX: "auto", paddingBottom: 4 }}>
-              {CATS.map((c) => (
-                <span
-                  key={c}
-                  className={`wf-chip ${catActiva === c ? "green" : ""}`}
-                  style={{ flexShrink: 0, cursor: "pointer" }}
-                  onClick={() => setCatActiva(c)}
-                >
-                  {c}
-                </span>
-              ))}
-            </div>
-
-            {/* Lista de productos */}
-            <div className="col">
-              {productosFiltrados.map((p) => (
-                <div key={p.id} className="wf-box" style={{ padding: 10 }}>
-                  <div className="row" style={{ gap: 10 }}>
-                    <ImgPlaceholder w={48} h={48} label="" />
-                    <div style={{ flex: 1 }}>
-                      <div className="wf-h3">{p.nombre}</div>
-                      <div className="wf-sm">{p.categoria || "General"}</div>
-                    </div>
-                    <div className="col" style={{ alignItems: "flex-end", gap: 6 }}>
-                      <span className="wf-h3">${parseFloat(p.precio).toFixed(2)}</span>
-                      <Stepper
-                        value={cantidades[p.id] ?? 0}
-                        onChange={(v) => setCantidades((prev) => ({ ...prev, [p.id]: v }))}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Footer de envío — solo visible si hay algo seleccionado */}
-            {numSeleccionados > 0 && (
-              <div
-                className="wf-box bold"
-                style={{
-                  padding: 12,
-                  background: "var(--sj-cream)",
-                  borderColor: "var(--sj-gold-d)",
-                  borderStyle: "dashed",
-                }}
-              >
-                <div className="between">
-                  <div>
-                    <div className="wf-h3">{numSeleccionados} productos</div>
-                    <div className="wf-sm">${totalSeleccionados.toFixed(2)} · pendiente de enviar</div>
-                  </div>
-                  <button
-                    className="wf-btn primary"
-                    disabled={enviando}
-                    onClick={handleAgregar}
-                  >
-                    {enviando ? "Enviando…" : "Agregar productos"}
-                  </button>
-                </div>
-              </div>
-            )}
+            <div className="wf-sm">a Mesa {mesaId}</div>
           </div>
         </div>
       </div>
+
+      {/* Search */}
+      <input
+        type="text"
+        className="wf-search"
+        placeholder="🔍 buscar producto…"
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+      />
+
+      {/* Product list */}
+      <div className="product-grid">
+        {productosFiltrados.map((p) => (
+          <div key={p.id} className="wf-box" style={{ padding: 10 }}>
+            <div className="row" style={{ gap: 10 }}>
+              <div
+                className="wf-img"
+                style={{ width: 48, height: 48 }}
+              >
+                <span style={{ position: "relative", background: "var(--sj-paper)", padding: "1px 6px", borderRadius: 4 }}>
+                  foto
+                </span>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="wf-h3">{p.nombre}</div>
+                <div className="wf-sm">
+                  ${parseFloat(p.precio).toFixed(2)}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div className="stepper">
+                  <button
+                    className="minus"
+                    onClick={() => cambiarCantidad(p.id, -1)}
+                  >
+                    −
+                  </button>
+                  <span className="val">{cantidades[p.id] || 0}</span>
+                  <button
+                    className="plus"
+                    onClick={() => cambiarCantidad(p.id, 1)}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pending summary bar */}
+      {cantNuevos > 0 && (
+        <div
+          className="wf-box bold"
+          style={{
+            padding: 12,
+            background: "var(--sj-cream)",
+            borderColor: "var(--sj-gold-d)",
+            borderStyle: "dashed",
+          }}
+        >
+          <div className="between">
+            <div>
+              <div className="wf-h3">{cantNuevos} productos</div>
+              <div className="wf-sm">
+                ${totalNuevos.toFixed(2)} · pendiente de enviar
+              </div>
+            </div>
+            <button
+              className="wf-btn primary"
+              onClick={handleAgregar}
+              disabled={enviando}
+            >
+              {enviando ? "Enviando…" : "Enviar a cocina"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -3,8 +3,6 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { fetchPedidoDetail, updatePedido } from "../api/ListaProductos";
 import CambioSugerencias from "./CambioSugerencias";
-import { TopBar, SectionHead, StatusBar } from "../components/DesignPrimitives";
-import "../design-system.css";
 
 const ComandaCliente = () => {
   const { mesaId } = useParams();
@@ -24,22 +22,18 @@ const ComandaCliente = () => {
 
   if (!pedido)
     return (
-      <div className="device">
-        <div className="device__inner">
-          <StatusBar title="Comanda" />
-          <div className="page">
-            <div className="wf-body" style={{ color: "var(--sj-ink-2)", marginTop: 40, textAlign: "center" }}>
-              Cargando…
-            </div>
-          </div>
-        </div>
-      </div>
+      <div className="loading-screen">Cargando...</div>
     );
 
-  const total = parseFloat(pedido.factura.total).toFixed(2);
+  const total = parseFloat(pedido.factura.total);
+  const totalStr = total.toFixed(2);
+  const received = parseInt(dineroRecibido) || 0;
+  const cambio = Math.max(0, received - total);
 
   const handleFinalizar = async () => {
-    const confirmado = window.confirm("¿Estás seguro de que deseas finalizar este pedido?");
+    const confirmado = window.confirm(
+      "¿Estás seguro de que deseas finalizar este pedido?"
+    );
     if (!confirmado) return;
 
     const payload = {
@@ -63,111 +57,190 @@ const ComandaCliente = () => {
     }
   };
 
+  // Quick amounts for received money
+  const quickAmounts = [
+    Math.ceil(total / 100) * 100,
+    Math.ceil(total / 100) * 100 + 100,
+    Math.ceil(total / 500) * 500,
+    1000,
+  ].filter((v, i, a) => v >= total && a.indexOf(v) === i).slice(0, 3);
+
   return (
-    <div className="device">
-      <div className="device__inner">
-        <StatusBar title={`Mesa ${mesaId}`} />
-
-        <div className="device__body no-tabbar">
-          <div className="page">
-            {/* TopBar con botón agregar */}
-            <TopBar
-              back={() => navigate("/")}
-              title={`Mesa ${mesaId}`}
-              subtitle="abierta"
-              right={
-                <button
-                  className="wf-btn sm ghost"
-                  onClick={() => navigate(`/mesa/${mesaId}/agregar`, { state: { pedido } })}
-                >
-                  + producto
-                </button>
-              }
-            />
-
-            {/* Lista de productos */}
-            <SectionHead>Comanda</SectionHead>
-
-            <div className="col">
-              {pedido.productos_pedidos.map((item) => (
-                <div key={item.id} className="wf-box" style={{ padding: "10px 12px" }}>
-                  <div className="between">
-                    <div style={{ flex: 1 }}>
-                      <div className="wf-h3">{item.producto_nombre}</div>
-                    </div>
-                    <span className="wf-chip">{item.cantidad}</span>
-                  </div>
-                  <div className="between" style={{ marginTop: 6 }}>
-                    <span className="wf-sm">subtotal</span>
-                    <span className="wf-h3">${parseFloat(item.subtotal).toFixed(2)}</span>
-                  </div>
-                </div>
-              ))}
+    <div className="page fade-in">
+      {/* Top bar */}
+      <div className="between" style={{ marginBottom: 12 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <button
+            className="wf-btn sm ghost"
+            onClick={() => navigate("/")}
+            style={{ padding: "4px 10px", fontSize: 18, lineHeight: 1 }}
+          >
+            ‹ atrás
+          </button>
+          <div>
+            <div className="wf-h1" style={{ fontSize: 28 }}>
+              Mesa {mesaId}
             </div>
-
-            {/* Total */}
-            <div
-              className="wf-box bold"
-              style={{ padding: 12, background: "var(--sj-green-l)", borderColor: "var(--sj-green-d)" }}
-            >
-              <div className="between">
-                <span className="wf-h2">Total</span>
-                <span className="wf-h1" style={{ fontSize: 36, color: "var(--sj-green-d)" }}>
-                  ${total}
-                </span>
-              </div>
-            </div>
-
-            <div className="wf-divider" />
-
-            {/* Dinero recibido */}
-            <SectionHead>Cobro</SectionHead>
-
-            <div>
-              <div className="wf-sm" style={{ marginBottom: 6 }}>Dinero recibido</div>
-              <input
-                type="number"
-                className="wf-input"
-                value={dineroRecibido}
-                onChange={(e) => setDineroRecibido(parseInt(e.target.value) || 0)}
-                placeholder="$0.00"
-              />
-            </div>
-
-            {/* Cambios posibles */}
-            <div
-              className="wf-box"
-              style={{
-                padding: 12,
-                borderStyle: "dashed",
-                borderColor: "var(--sj-gold-d)",
-                background: "oklch(0.98 0.04 85)",
-                minHeight: 80,
-              }}
-            >
-              <div className="wf-h3" style={{ marginBottom: 8 }}>Cambios posibles</div>
-              <CambioSugerencias
-                dineroRecibido={parseInt(dineroRecibido) || 0}
-                totalAPagar={parseFloat(total)}
-              />
-            </div>
-
-            <div className="wf-divider" />
-
-            {/* Acciones */}
-            <div className="row" style={{ gap: 8 }}>
-              <button
-                className="wf-btn gold grow"
-                onClick={() => navigate(`/mesa/${mesaId}/agregar`, { state: { pedido } })}
-              >
-                + Agregar
-              </button>
-              <button className="wf-btn danger grow" onClick={handleFinalizar}>
-                Finalizar pedido
-              </button>
-            </div>
+            <div className="wf-sm">comanda activa</div>
           </div>
         </div>
+        <span className="wf-chip red">en cocina</span>
+      </div>
+
+      {/* Section: Comanda */}
+      <div className="between" style={{ marginTop: 4, marginBottom: 4 }}>
+        <div className="wf-h2" style={{ fontSize: 22 }}>Comanda</div>
+        <button
+          className="wf-btn sm ghost"
+          onClick={() =>
+            navigate(`/mesa/${mesaId}/agregar`, { state: { pedido } })
+          }
+        >
+          + producto
+        </button>
+      </div>
+
+      {/* Product items */}
+      <div className="col">
+        {pedido.productos_pedidos.map((item) => (
+          <div key={item.id} className="wf-box" style={{ padding: "10px 12px" }}>
+            <div className="between">
+              <div style={{ flex: 1 }}>
+                <div className="wf-h3">{item.producto_nombre}</div>
+              </div>
+              <div className="wf-sm" style={{ marginRight: 8 }}>
+                × {item.cantidad}
+              </div>
+            </div>
+            <div className="between" style={{ marginTop: 6 }}>
+              <span className="wf-sm">
+                ${(parseFloat(item.subtotal) / item.cantidad).toFixed(2)} c/u
+              </span>
+              <span className="wf-h3">${parseFloat(item.subtotal).toFixed(2)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Total box */}
+      <div
+        className="wf-box bold"
+        style={{
+          padding: 12,
+          background: "var(--sj-green-l)",
+          borderColor: "var(--sj-green-d)",
+        }}
+      >
+        <div className="between">
+          <span className="wf-h2">Total</span>
+          <span
+            className="wf-h1"
+            style={{ fontSize: 36, color: "var(--sj-green-d)" }}
+          >
+            ${totalStr}
+          </span>
+        </div>
+      </div>
+
+      <div className="wf-divider" />
+
+      {/* Dinero recibido */}
+      <div>
+        <div className="wf-sm" style={{ marginBottom: 4 }}>
+          Dinero recibido
+        </div>
+        <div className="wf-box" style={{ padding: "10px 14px" }}>
+          <div className="between">
+            <input
+              type="number"
+              className="wf-input"
+              value={dineroRecibido}
+              onChange={(e) => setDineroRecibido(e.target.value)}
+              placeholder="$0"
+              style={{ border: "none", boxShadow: "none", padding: 0, fontSize: 28, fontFamily: "'Caveat', cursive", fontWeight: 700 }}
+            />
+            <button
+              className="wf-btn sm ghost"
+              onClick={() => setDineroRecibido("")}
+            >
+              limpiar
+            </button>
+          </div>
+        </div>
+        <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+          {quickAmounts.map((a) => (
+            <span
+              key={a}
+              className="wf-chip"
+              style={{ cursor: "pointer" }}
+              onClick={() => setDineroRecibido(String(a))}
+            >
+              ${a}
+            </span>
+          ))}
+          <span
+            className="wf-chip gold"
+            style={{ cursor: "pointer" }}
+            onClick={() => setDineroRecibido(String(Math.ceil(total)))}
+          >
+            exacto
+          </span>
+        </div>
+      </div>
+
+      {/* Cambio box */}
+      {received > 0 && (
+        <div
+          className="wf-box"
+          style={{
+            padding: 12,
+            borderStyle: "dashed",
+            borderColor: "var(--sj-gold-d)",
+            background: "oklch(0.98 0.04 85)",
+          }}
+        >
+          <div className="between">
+            <span className="wf-h3">Cambio</span>
+            <span
+              className="wf-h1"
+              style={{ fontSize: 30, color: "var(--sj-gold-d)" }}
+            >
+              ${cambio.toFixed(0)}
+            </span>
+          </div>
+          {cambio > 0 && (
+            <>
+              <div className="wf-divider" />
+              <CambioSugerencias
+                dineroRecibido={received}
+                totalAPagar={total}
+              />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="row" style={{ gap: 8 }}>
+        <button
+          className="wf-btn primary grow"
+          onClick={handleFinalizar}
+        >
+          Cobrar y cerrar mesa
+        </button>
+      </div>
+      <div className="row" style={{ gap: 8 }}>
+        <button
+          className="wf-btn ghost grow"
+          onClick={() =>
+            navigate(`/mesa/${mesaId}/agregar`, { state: { pedido } })
+          }
+        >
+          + Agregar productos
+        </button>
+        <button className="wf-btn danger sm" onClick={() => navigate("/")}>
+          Volver
+        </button>
       </div>
     </div>
   );

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
-// Lógica de cambio intacta — solo se actualizan los estilos visuales
 
-/* === FUNCIONES DE CAMBIO (lógica original sin modificar) === */
+/* === FUNCIONES DE CAMBIO (sin cambios) === */
 const MONEDAS = [1, 2, 5, 10, 20];
 const BILLETES = [20, 50, 100, 200, 500, 1000];
 const DENOMINACIONES = [...MONEDAS, ...BILLETES].sort((a, b) => b - a);
@@ -41,7 +40,7 @@ function clasificarCombinaciones(combos) {
 
   for (let c of combos) {
     const keys = new Set(c);
-    const esMonedas  = [...keys].every((d) => MONEDAS.includes(d));
+    const esMonedas = [...keys].every((d) => MONEDAS.includes(d));
     const esBilletes = [...keys].every((d) => BILLETES.includes(d));
     const obj = contarDenominaciones(c);
 
@@ -49,7 +48,12 @@ function clasificarCombinaciones(combos) {
     else if (esBilletes && soloBilletes.length < 1) soloBilletes.push(obj);
     else if (!esMonedas && !esBilletes && mixtas.length < 3) mixtas.push(obj);
 
-    if (mixtas.length === 3 && soloMonedas.length === 2 && soloBilletes.length === 1) break;
+    if (
+      mixtas.length === 3 &&
+      soloMonedas.length === 2 &&
+      soloBilletes.length === 1
+    )
+      break;
   }
   return [...mixtas, ...soloMonedas, ...soloBilletes];
 }
@@ -71,7 +75,7 @@ function obtenerCombinacionesCambio(cambio) {
   return { todas, iniciales: clasificarCombinaciones(todas) };
 }
 
-/* === COMPONENTE PRINCIPAL === */
+/* === COMPONENTE PRINCIPAL (restyled) === */
 const CambioSugerencias = ({ dineroRecibido, totalAPagar }) => {
   const cambio = dineroRecibido - totalAPagar;
   const [combinaciones, setCombinaciones] = useState([]);
@@ -100,71 +104,53 @@ const CambioSugerencias = ({ dineroRecibido, totalAPagar }) => {
   };
 
   if (cambio <= 0) {
-    return (
-      <p className="wf-sm" style={{ margin: 0 }}>
-        {dineroRecibido > 0 ? "No hay cambio que devolver." : "Ingresa el dinero recibido."}
-      </p>
-    );
+    return <p className="wf-sm">No hay cambio que devolver.</p>;
   }
 
   return (
     <div>
-      {/* Cambio total */}
-      <div className="between" style={{ marginBottom: 8 }}>
-        <span className="wf-sm">💰 Cambio a devolver</span>
-        <span
-          className="wf-h1"
-          style={{ fontSize: 30, color: "var(--sj-gold-d)" }}
-        >
-          ${cambio}
-        </span>
+      <div className="wf-sm" style={{ marginBottom: 6 }}>
+        Combinaciones posibles
       </div>
 
-      <div className="wf-divider" />
-
-      <div className="wf-sm" style={{ marginBottom: 6 }}>Combinaciones posibles</div>
-
-      {/* Combinaciones */}
-      <div className="col" style={{ gap: 6 }}>
-        {combinaciones.map((combo, idx) => (
-          <div
-            key={idx}
-            className="row"
-            style={{ gap: 6, flexWrap: "wrap", padding: "6px 0" }}
-          >
-            {Object.entries(combo).map(([denom, cantidad]) => (
-              <span key={denom} className="wf-chip" style={{ position: "relative" }}>
-                <strong style={{ fontFamily: "Caveat", fontSize: 18 }}>${denom}</strong>
-                <span
-                  style={{
-                    background: "var(--sj-red)",
-                    color: "white",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: "1px 5px",
-                    borderRadius: 999,
-                    marginLeft: 2,
-                  }}
-                >
-                  ×{cantidad}
-                </span>
-              </span>
-            ))}
-          </div>
-        ))}
-      </div>
+      {combinaciones.map((combo, idx) => (
+        <div key={idx} className="cambio-combo">
+          {Object.entries(combo).map(([denom, cantidad]) => (
+            <div key={denom} className="cambio-denom">
+              <img
+                src={`/assets/dinero/${denom}.png`}
+                alt={`$${denom}`}
+                onError={(e) => {
+                  // Fallback if image doesn't exist
+                  e.target.style.display = "none";
+                  e.target.nextSibling.style.display = "flex";
+                }}
+              />
+              <div
+                className="wf-chip"
+                style={{
+                  display: "none",
+                  fontSize: 16,
+                  fontFamily: "'Caveat', cursive",
+                  fontWeight: 700,
+                }}
+              >
+                ${denom}
+              </div>
+              <span className="cambio-denom__qty">{cantidad}</span>
+            </div>
+          ))}
+        </div>
+      ))}
 
       {indice < todas.length && (
-        <>
-          <div className="wf-divider" />
-          <button
-            className="wf-btn sm ghost"
-            style={{ width: "100%", marginTop: 4 }}
-            onClick={handleVerMas}
-          >
-            ver más combinaciones →
-          </button>
-        </>
+        <button
+          className="wf-btn sm ghost"
+          onClick={handleVerMas}
+          style={{ marginTop: 4 }}
+        >
+          ver más combinaciones →
+        </button>
       )}
     </div>
   );
