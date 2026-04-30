@@ -1,23 +1,15 @@
 from rest_framework import serializers
-from .models import Pedido, ProductoPedido, Factura, Extras
+from .models import Pedido, ProductoPedido, Factura, CierreDia, MovimientoCaja
 from rest_framework.exceptions import ValidationError
-from django.db.models import Q
-from django.db import transaction
 
-
-
-
-class PedidoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Pedido
-        fields = ['id', 'mesa', 'estatus', 'fecha_creacion']
 
 class ProductoPedidoSerializer(serializers.ModelSerializer):
     producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
-    
+
     class Meta:
         model = ProductoPedido
-        fields = ['id', 'producto', 'producto_nombre', 'cantidad', 'subtotal']
+        fields = ['id', 'producto', 'producto_nombre', 'cantidad', 'subtotal', 'listo_cocina']
+
 
 class FacturaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -25,174 +17,116 @@ class FacturaSerializer(serializers.ModelSerializer):
         fields = ['id', 'pedido', 'total', 'create_date']
         read_only_fields = ['create_date']
 
+
+class PedidoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Pedido
+        fields = ['id', 'mesa', 'tipo', 'estatus', 'fecha_creacion', 'para_llevar', 'costo_extra_llevar']
+
+
 class PedidoDetailSerializer(serializers.ModelSerializer):
     productos_pedidos = ProductoPedidoSerializer(many=True)
     factura = FacturaSerializer(read_only=True)
+
     class Meta:
         model = Pedido
-        fields = ['id', 'mesa', 'estatus', 'fecha_creacion', 'productos_pedidos', 'factura']
+        fields = ['id', 'mesa', 'tipo', 'estatus', 'fecha_creacion',
+                  'para_llevar', 'costo_extra_llevar', 'productos_pedidos', 'factura']
         read_only_fields = ['fecha_creacion']
 
     def create(self, validated_data):
         productos_data = validated_data.pop('productos_pedidos')
         mesa = validated_data.get('mesa')
-        if Pedido.objects.filter(
-            mesa=mesa,
-        ).filter(
-            Q(estatus__iexact='ocupado') | Q(estatus__iexact='preparacion')
-        ).exists():
+        tipo = validated_data.get('tipo', 'mesa')
+
+        if tipo == 'mesa' and Pedido.objects.filter(mesa=mesa, estatus__iexact='ocupado').exists():
             raise ValidationError({'mesa': f'La mesa {mesa} ya está ocupada.'})
 
         pedido = Pedido.objects.create(**validated_data)
 
         total = 0
         for prod_data in productos_data:
-            producto_pedido = ProductoPedido.objects.create(
+            pp = ProductoPedido.objects.create(
                 pedido=pedido,
                 producto=prod_data['producto'],
+                producto_nombre=prod_data.get('producto_nombre', prod_data['producto'].nombre),
                 cantidad=prod_data['cantidad'],
-                subtotal=prod_data['subtotal']
+                subtotal=prod_data['subtotal'],
             )
-            total += producto_pedido.subtotal
+            total += pp.subtotal
 
-        Factura.objects.create(
-            pedido=pedido,
-            total=total
-        )
-
+        Factura.objects.create(pedido=pedido, total=total)
         return pedido
 
     def update(self, instance, validated_data):
         productos_data = validated_data.pop('productos_pedidos', [])
 
-        instance.estatus = validated_data.get('estatus', instance.estatus)
-        instance.mesa = validated_data.get('mesa', instance.mesa)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
         instance.save()
 
         instance.productos_pedidos.all().delete()
 
         total = 0
         for prod_data in productos_data:
-            producto_pedido = ProductoPedido.objects.create(
+            pp = ProductoPedido.objects.create(
                 pedido=instance,
                 producto=prod_data['producto'],
+                producto_nombre=prod_data.get('producto_nombre', prod_data['producto'].nombre),
                 cantidad=prod_data['cantidad'],
-                subtotal=prod_data['subtotal']
+                subtotal=prod_data['subtotal'],
             )
-            total += producto_pedido.subtotal
+            total += pp.subtotal
 
         if hasattr(instance, 'factura'):
             instance.factura.total = total
             instance.factura.save()
         else:
-            Factura.objects.create(
-                pedido=instance,
-                total=total
-            )
+            Factura.objects.create(pedido=instance, total=total)
 
         return instance
 
-class ExtrasSerializer(serializers.ModelSerializer):
+
+class MovimientoCajaSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Extras
-        fields = ['id', 'nombre_mesa']
-        read_only_fields = ['id']
+        model = MovimientoCaja
+        fields = ['id', 'tipo', 'descripcion', 'monto']
 
 
-class ExtrasPedidosSerializer(serializers.ModelSerializer):
-    productos_pedidos = ProductoPedidoSerializer(many=True)
-    factura = FacturaSerializer(read_only=True)
-    extras = ExtrasSerializer(many=True)
+class CierreDiaSerializer(serializers.ModelSerializer):
+    movimientos = MovimientoCajaSerializer(many=True, required=False)
+    dinero_esperado = serializers.SerializerMethodField()
 
     class Meta:
-        model = Pedido
-        fields = [
-            'id',
-            'mesa',
-            'estatus',
-            'fecha_creacion',
-            'productos_pedidos',
-            'factura',
-            'extras',
-        ]
-        read_only_fields = ['id', 'fecha_creacion', 'mesa']
+        model = CierreDia
+        fields = ['id', 'fecha', 'cantidad_inicial', 'total_ventas',
+                  'total_comandas', 'canceladas', 'creado_en', 'movimientos', 'dinero_esperado']
+        read_only_fields = ['creado_en', 'total_ventas', 'total_comandas', 'canceladas']
 
-    @transaction.atomic
+    def get_dinero_esperado(self, obj):
+        movimientos = obj.movimientos.all()
+        gastos = sum(m.monto for m in movimientos if m.tipo == 'gasto')
+        retiros = sum(m.monto for m in movimientos if m.tipo == 'retiro')
+        return float(obj.cantidad_inicial) + float(obj.total_ventas) - float(gastos) - float(retiros)
+
     def create(self, validated_data):
-        productos_data = validated_data.pop('productos_pedidos', [])
-        extras_data = validated_data.pop('extras', [])
+        from django.db.models import Sum
+        from pedidos.models import Factura as F
+        movimientos_data = validated_data.pop('movimientos', [])
+        fecha = validated_data['fecha']
 
-        validated_data['mesa'] = 0
+        pedidos_dia = Pedido.objects.filter(fecha_creacion__date=fecha)
+        total_ventas = pedidos_dia.filter(estatus='finalizado').aggregate(
+            t=Sum('factura__total'))['t'] or 0
+        total_comandas = pedidos_dia.filter(estatus='finalizado').count()
+        canceladas = pedidos_dia.filter(estatus='cancelado').count()
 
-        pedido = Pedido.objects.create(**validated_data)
-
-        total = 0
-        for prod_data in productos_data:
-            item = ProductoPedido.objects.create(
-                pedido=pedido,
-                producto=prod_data['producto'],
-                cantidad=prod_data['cantidad'],
-                subtotal=prod_data['subtotal'],
-            )
-            total += item.subtotal
-
-        Factura.objects.create(pedido=pedido, total=total)
-
-        if not extras_data:
-            raise serializers.ValidationError({
-                'extras': 'Debes enviar al menos un extra con el campo "nombre_mesa".'
-            })
-
-        extras_bulk = []
-        for ex in extras_data:
-            nombre_mesa = ex.get('nombre_mesa')
-            if not nombre_mesa:
-                raise serializers.ValidationError({
-                    'extras': 'Cada extra debe incluir "nombre_mesa".'
-                })
-            extras_bulk.append(Extras(pedido=pedido, nombre_mesa=nombre_mesa))
-        Extras.objects.bulk_create(extras_bulk)
-
-        return pedido
-    
-    @transaction.atomic
-    def update(self, instance, validated_data):
-        productos_data = validated_data.pop('productos_pedidos', None)
-        extras_data = validated_data.pop('extras', None)
-
-        instance.estatus = validated_data.get('estatus', instance.estatus)
-        instance.save()
-
-        if productos_data is not None:
-            instance.productos_pedidos.all().delete()
-
-            total = 0
-            for prod_data in productos_data:
-                item = ProductoPedido.objects.create(
-                    pedido=instance,
-                    producto=prod_data['producto'],
-                    cantidad=prod_data['cantidad'],
-                    subtotal=prod_data['subtotal'],
-                )
-                total += item.subtotal
-
-            if hasattr(instance, 'factura'):
-                instance.factura.total = total
-                instance.factura.save()
-            else:
-                Factura.objects.create(pedido=instance, total=total)
-
-        if extras_data is not None:
-            for ex in extras_data:
-                if not ex.get('nombre_mesa'):
-                    raise serializers.ValidationError({
-                        'extras': 'Cada extra debe incluir "nombre_mesa".'
-                    })
-
-            instance.extras.all().delete()
-            Extras.objects.bulk_create([
-                Extras(pedido=instance, nombre_mesa=ex['nombre_mesa'])
-                for ex in extras_data
-            ])
-
-        return instance
+        cierre = CierreDia.objects.create(
+            **validated_data,
+            total_ventas=total_ventas,
+            total_comandas=total_comandas,
+            canceladas=canceladas,
+        )
+        for m in movimientos_data:
+            MovimientoCaja.objects.create(cierre=cierre, **m)
+        return cierre

@@ -1,11 +1,11 @@
 from django.db.models import Q
 
 class PedidoFilter:
-    ordering = ('-id',)  
+    ordering = ('-id',)  # Ordena del más nuevo al más antiguo
 
     filter_mappings = {
-        'mesa': 'mesa',                   
-        'estatus': 'estatus__iexact',    
+        'mesa': 'mesa',                   # filtro exacto
+        'estatus': 'estatus__iexact',     # filtro case-insensitive
     }
 
     def apply_filters(self, queryset, params):
