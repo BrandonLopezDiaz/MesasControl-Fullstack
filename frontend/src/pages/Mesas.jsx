@@ -1,7 +1,7 @@
 // src/pages/Mesas.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchPedidoDetail, fetchConfiguraciones } from "../api/ListaProductos";
+import { fetchPedidoDetail, fetchPedidos, fetchConfiguraciones } from "../api/ListaProductos";
 
 const MESAS = Array.from({ length: 10 }, (_, i) => i + 1);
 const EXTRAS = [
@@ -17,6 +17,7 @@ function minutosDesde(fechaStr) {
 export default function Mesas() {
   const navigate = useNavigate();
   const [mesaStates, setMesaStates] = useState({});
+  const [extraPedidos, setExtraPedidos] = useState([]);
   const [limiteMin, setLimiteMin] = useState(15);
 
   useEffect(() => {
@@ -45,6 +46,13 @@ export default function Mesas() {
         })
       );
       if (!cancelled) setMesaStates(states);
+
+      // Load active extras (tipo != mesa)
+      try {
+        const todos = await fetchPedidos({ estatus: "ocupado" });
+        const extras = todos.filter(p => p.tipo && p.tipo !== "mesa");
+        if (!cancelled) setExtraPedidos(extras);
+      } catch { }
     };
 
     fetchConfiguraciones().then(cfgs => {
@@ -67,8 +75,11 @@ export default function Mesas() {
   };
 
   const handleExtraClick = (extra) => {
-    // Use mesa=0 as placeholder for extras, tipo identifies them
     navigate(`/mesa/0/agregar`, { state: { tipo: extra.id } });
+  };
+
+  const handleExtraPedidoClick = (pedido) => {
+    navigate(`/mesa/${pedido.mesa}/comandaCliente`, { state: { pedido } });
   };
 
   const freeCount = Object.values(mesaStates).filter(s => s.state === "free").length;
@@ -76,9 +87,9 @@ export default function Mesas() {
 
   const mesaColor = (info) => {
     if (!info || info.state === "free") return "var(--sj-green-l)";
-    if (info.state === "listo") return "oklch(0.90 0.09 85)"; // gold — ready in kitchen
-    if (info.minutos >= limiteMin) return "oklch(0.92 0.06 25)"; // red alert
-    return "oklch(0.95 0.07 85)"; // yellow — recently started
+    if (info.state === "listo") return "oklch(0.90 0.09 85)";
+    if (info.minutos >= limiteMin) return "oklch(0.92 0.06 25)";
+    return "oklch(0.95 0.07 85)";
   };
 
   const mesaNumColor = (info) => {
@@ -87,6 +98,8 @@ export default function Mesas() {
     if (info.minutos >= limiteMin) return "var(--sj-red)";
     return "oklch(0.50 0.10 80)";
   };
+
+  const extraLabel = (tipo) => EXTRAS.find(e => e.id === tipo) || { emoji: "📦", label: tipo };
 
   return (
     <div className="page fade-in">
@@ -120,7 +133,6 @@ export default function Mesas() {
       <div className="between" style={{ marginTop: 4 }}>
         <div className="wf-h2" style={{ fontSize: 22 }}>Mesas</div>
       </div>
-
       <div className="mesa-grid">
         {MESAS.map((mesa) => {
           const info = mesaStates[mesa] || { state: "free" };
@@ -133,18 +145,50 @@ export default function Mesas() {
             >
               <div className="wf-mesa__num" style={{ color: mesaNumColor(info) }}>{mesa}</div>
               {info.state === "free" && <div className="wf-mesa__lbl">libre</div>}
-              {(info.state === "occupied") && (
-                <div className="wf-mesa__lbl">{info.minutos}min · ${info.total?.toFixed(0)}</div>
-              )}
+              {info.state === "occupied" && <div className="wf-mesa__lbl">{info.minutos}min · ${info.total?.toFixed(0)}</div>}
               {info.state === "listo" && <div className="wf-mesa__lbl">🏅 listo</div>}
             </div>
           );
         })}
       </div>
 
-      {/* Extra options */}
+      {/* Active extra orders */}
+      {extraPedidos.length > 0 && (
+        <>
+          <div className="between" style={{ marginTop: 4 }}>
+            <div className="wf-h2" style={{ fontSize: 22 }}>Extras activos</div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {extraPedidos.map(p => {
+              const { emoji, label } = extraLabel(p.tipo);
+              const mins = minutosDesde(p.fecha_creacion);
+              return (
+                <div
+                  key={p.id}
+                  className="wf-box bold"
+                  style={{ padding: "12px 14px", cursor: "pointer", borderColor: "var(--sj-gold-d)", background: "oklch(0.97 0.04 85)" }}
+                  onClick={() => handleExtraPedidoClick(p)}
+                >
+                  <div className="between">
+                    <div>
+                      <div className="wf-h3">{emoji} {label} <span className="wf-sm">#{p.id}</span></div>
+                      <div className="wf-sm">{p.productos_pedidos?.length || 0} productos · {mins}min</div>
+                    </div>
+                    <div className="row" style={{ gap: 8 }}>
+                      <span className="wf-h2" style={{ color: "var(--sj-green-d)" }}>${parseFloat(p.factura?.total || 0).toFixed(2)}</span>
+                      <span className="wf-sm">→</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Extra options — new */}
       <div className="between" style={{ marginTop: 4 }}>
-        <div className="wf-h2" style={{ fontSize: 22 }}>Extra</div>
+        <div className="wf-h2" style={{ fontSize: 22 }}>Nuevo extra</div>
       </div>
       <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
         {EXTRAS.map(e => (

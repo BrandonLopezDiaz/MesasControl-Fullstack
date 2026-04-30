@@ -15,13 +15,13 @@ function tiempoTranscurrido(fechaStr) {
   const diff = Math.floor((Date.now() - new Date(fechaStr)) / 1000);
   const m = Math.floor(diff / 60);
   const s = diff % 60;
-  return { m, s, total: diff };
+  return { m, s };
 }
 
 export default function Cocina() {
   const [pedidos, setPedidos] = useState([]);
   const [limiteMin, setLimiteMin] = useState(15);
-  useTicker(); // re-renders every second
+  useTicker();
 
   const load = useCallback(async () => {
     const data = await fetchPedidos({ estatus: "ocupado" }).catch(() => []);
@@ -30,7 +30,7 @@ export default function Cocina() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 15000); // poll each 15s
+    const id = setInterval(load, 15000);
     return () => clearInterval(id);
   }, [load]);
 
@@ -41,15 +41,21 @@ export default function Cocina() {
     }).catch(() => {});
   }, []);
 
-  const marcarProductoListo = async (prodId, pedido) => {
+  const marcarProductoListo = async (prodId) => {
     await patchProductoPedido(prodId, { listo_cocina: true });
     load();
   };
 
-  const marcarComandaLista = async (pedido) => {
+  // Mark ALL products as ready, then mark comanda as listo_cocina
+  const marcarTodoListo = async (pedido) => {
+    await Promise.all(
+      pedido.productos_pedidos
+        .filter(pp => !pp.listo_cocina)
+        .map(pp => patchProductoPedido(pp.id, { listo_cocina: true }))
+    );
     const payload = {
       mesa: pedido.mesa,
-      tipo: pedido.tipo,
+      tipo: pedido.tipo || "mesa",
       estatus: "listo_cocina",
       para_llevar: pedido.para_llevar,
       costo_extra_llevar: pedido.costo_extra_llevar,
@@ -65,10 +71,10 @@ export default function Cocina() {
   };
 
   const etiquetaMesa = (p) => {
-    if (p.tipo === "mesa") return `Mesa ${p.mesa}`;
-    if (p.tipo === "barra") return "Barra";
-    if (p.tipo === "para_llevar") return "Para llevar";
-    return "Pedido rápido";
+    if (p.tipo === "barra") return "🍺 Barra";
+    if (p.tipo === "para_llevar") return "🛍️ Para llevar";
+    if (p.tipo === "rapido") return "⚡ Rápido";
+    return `Mesa ${p.mesa}`;
   };
 
   return (
@@ -79,16 +85,15 @@ export default function Cocina() {
       </div>
 
       {pedidos.length === 0 && (
-        <div className="loading-screen" style={{ fontSize: 22 }}>
-          Sin pedidos activos 🎉
-        </div>
+        <div className="loading-screen" style={{ fontSize: 22 }}>Sin pedidos activos 🎉</div>
       )}
 
       <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px,1fr))" }}>
         {pedidos.map(pedido => {
-          const { m, s, total } = tiempoTranscurrido(pedido.fecha_creacion);
+          const { m, s } = tiempoTranscurrido(pedido.fecha_creacion);
           const alerta = m >= limiteMin;
-          const todosListos = pedido.productos_pedidos.every(pp => pp.listo_cocina);
+          const pendientes = pedido.productos_pedidos.filter(pp => !pp.listo_cocina);
+          const todosListos = pendientes.length === 0;
 
           return (
             <div
@@ -101,8 +106,8 @@ export default function Cocina() {
               }}
             >
               {/* Header */}
-              <div className="between" style={{ marginBottom: 10 }}>
-                <div className="wf-h2" style={{ fontSize: 24 }}>{etiquetaMesa(pedido)}</div>
+              <div className="between" style={{ marginBottom: 8 }}>
+                <div className="wf-h2" style={{ fontSize: 22 }}>{etiquetaMesa(pedido)}</div>
                 <span
                   className="wf-chip"
                   style={{
@@ -129,36 +134,47 @@ export default function Cocina() {
                       borderRadius: 8,
                       border: "1.5px solid var(--sj-line)",
                       background: pp.listo_cocina ? "var(--sj-green-l)" : "var(--sj-cream)",
-                      opacity: pp.listo_cocina ? 0.6 : 1,
+                      opacity: pp.listo_cocina ? 0.55 : 1,
                     }}
                   >
                     <div>
                       <span className="wf-h3" style={{ fontSize: 17 }}>{pp.producto_nombre}</span>
                       <span className="wf-sm" style={{ marginLeft: 6 }}>× {pp.cantidad}</span>
                     </div>
-                    {!pp.listo_cocina && (
-                      <button
-                        className="wf-btn sm"
-                        style={{ padding: "2px 8px", fontSize: 14 }}
-                        onClick={() => marcarProductoListo(pp.id, pedido)}
-                      >
-                        ✓ listo
-                      </button>
-                    )}
-                    {pp.listo_cocina && <span style={{ color: "var(--sj-green-d)", fontSize: 18 }}>✓</span>}
+                    {pp.listo_cocina
+                      ? <span style={{ color: "var(--sj-green-d)", fontSize: 20 }}>✓</span>
+                      : (
+                        <button
+                          className="wf-btn sm"
+                          style={{ padding: "2px 10px", fontSize: 14 }}
+                          onClick={() => marcarProductoListo(pp.id)}
+                        >
+                          ✓ listo
+                        </button>
+                      )
+                    }
                   </div>
                 ))}
               </div>
 
               {/* Actions */}
-              <div style={{ marginTop: 10 }}>
+              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                {!todosListos && (
+                  <button
+                    className="wf-btn gold"
+                    style={{ width: "100%" }}
+                    onClick={() => marcarTodoListo(pedido)}
+                  >
+                    ✓ Marcar todo listo ({pendientes.length})
+                  </button>
+                )}
                 <button
                   className="wf-btn primary"
                   style={{ width: "100%" }}
-                  onClick={() => marcarComandaLista(pedido)}
+                  onClick={() => marcarTodoListo(pedido)}
                   disabled={!todosListos}
                 >
-                  {todosListos ? "✓ Comanda lista" : `Falta marcar (${pedido.productos_pedidos.filter(pp => !pp.listo_cocina).length})`}
+                  {todosListos ? "✓ Comanda lista — entregar" : `Esperando ${pendientes.length} producto(s)`}
                 </button>
               </div>
             </div>

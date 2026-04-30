@@ -38,7 +38,9 @@ class PedidoDetailViewSet(PedidoFilter, FiltersMixin, ModelViewSet):
         queryset = super().get_queryset().order_by('-id')
         queryset = self.filter_queryset(queryset)
         mesa = self.request.query_params.get('mesa')
-        if mesa:
+        tipo = self.request.query_params.get('tipo')
+        # For mesa queries (not extras), return only the latest active pedido
+        if mesa and not tipo:
             return queryset.filter(id__in=queryset.values_list('id', flat=True)[:1])
         return queryset
 

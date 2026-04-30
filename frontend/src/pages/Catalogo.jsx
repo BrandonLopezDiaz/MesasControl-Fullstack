@@ -7,7 +7,7 @@ import {
 
 const SECCION_OPTS = ["Productos", "Configuraciones"];
 
-const emptyProducto = { nombre: "", precio: "", categoria: "", activo: true };
+const emptyProducto = { nombre: "", precio: "", categoria: "", activo: true, imagen: "" };
 const emptyConfig = { clave: "", valor: "", descripcion: "" };
 
 export default function Catalogo() {
@@ -34,7 +34,7 @@ export default function Catalogo() {
 
   /* ─── Productos ─── */
   const openNewP = () => { setFormP(emptyProducto); setEditP({}); setError(""); };
-  const openEditP = (p) => { setFormP({ nombre: p.nombre, precio: p.precio, categoria: p.categoria || "", activo: p.activo }); setEditP(p); setError(""); };
+  const openEditP = (p) => { setFormP({ nombre: p.nombre, precio: p.precio, categoria: p.categoria || "", activo: p.activo, imagen: p.imagen || "" }); setEditP(p); setError(""); };
   const closeP = () => setEditP(null);
 
   const saveP = async () => {
@@ -144,6 +144,10 @@ export default function Catalogo() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {prods.map(p => (
                     <div key={p.id} className="wf-box" style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                      {p.imagen
+                        ? <img src={p.imagen} alt={p.nombre} style={{ width: 40, height: 40, borderRadius: 6, objectFit: "cover", border: "1px solid var(--sj-line)", flexShrink: 0 }} />
+                        : <div style={{ width: 40, height: 40, borderRadius: 6, background: "var(--sj-cream-2)", border: "1px solid var(--sj-line)", flexShrink: 0 }} />
+                      }
                       <div style={{ flex: 1 }}>
                         <span className="wf-h3">{p.nombre}</span>
                         {!p.activo && <span className="wf-chip" style={{ marginLeft: 8, fontSize: 12 }}>inactivo</span>}
@@ -198,6 +202,34 @@ export default function Catalogo() {
           </Field>
           <Field label="Categoría">
             <input className="wf-input" value={formP.categoria} onChange={e => setFormP(f => ({ ...f, categoria: e.target.value }))} placeholder="Caldos, Bebidas…" />
+          </Field>
+          <Field label="Imagen del producto">
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              {formP.imagen && (
+                <img src={formP.imagen} alt="preview" style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover", border: "1.5px solid var(--sj-line)" }} />
+              )}
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  id="img-upload"
+                  onChange={e => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = ev => setFormP(f => ({ ...f, imagen: ev.target.result }));
+                    reader.readAsDataURL(file);
+                  }}
+                />
+                <label htmlFor="img-upload" className="wf-btn sm ghost" style={{ cursor: "pointer" }}>
+                  📷 {formP.imagen ? "Cambiar imagen" : "Subir imagen"}
+                </label>
+                {formP.imagen && (
+                  <button className="wf-btn sm danger" style={{ marginLeft: 6 }} onClick={() => setFormP(f => ({ ...f, imagen: "" }))}>quitar</button>
+                )}
+              </div>
+            </div>
           </Field>
           <Field label="">
             <label style={{ fontFamily: "'Patrick Hand',cursive", fontSize: 17, display: "flex", gap: 8, cursor: "pointer" }}>

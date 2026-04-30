@@ -6,6 +6,7 @@ class Producto(models.Model):
     precio = models.DecimalField(max_digits=10, decimal_places=2)
     categoria = models.CharField(max_length=50, blank=True, default='')
     activo = models.BooleanField(default=True)
+    imagen = models.TextField(blank=True, default='')  # base64 data URL
 
     def __str__(self):
         return self.nombre

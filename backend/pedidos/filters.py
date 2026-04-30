@@ -4,8 +4,9 @@ class PedidoFilter:
     ordering = ('-id',)  # Ordena del más nuevo al más antiguo
 
     filter_mappings = {
-        'mesa': 'mesa',                   # filtro exacto
-        'estatus': 'estatus__iexact',     # filtro case-insensitive
+        'mesa': 'mesa',
+        'estatus': 'estatus__iexact',
+        'tipo': 'tipo__iexact',
     }
 
     def apply_filters(self, queryset, params):

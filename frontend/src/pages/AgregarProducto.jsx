@@ -52,12 +52,36 @@ export default function AgregarProductos() {
 
     const extraPorProd = paraLlevar ? costoLlevar : 0;
 
-    const productos_pedidos = seleccionados.map(p => ({
-      producto: p.id,
-      producto_nombre: p.nombre,
-      cantidad: cantidades[p.id],
-      subtotal: ((cantidades[p.id] * parseFloat(p.precio)) + (cantidades[p.id] * extraPorProd)).toFixed(2),
-    }));
+    // If editing existing pedido, only send NEW products (not the original ones)
+    // The backend will replace all productos_pedidos, so we merge old + new
+    let productosFinales;
+    if (initialPedido?.productos_pedidos) {
+      // Start from original items
+      const originales = initialPedido.productos_pedidos.map(pp => ({
+        producto: pp.producto,
+        producto_nombre: pp.producto_nombre,
+        cantidad: pp.cantidad,
+        subtotal: pp.subtotal,
+      }));
+      // Find truly new products (not in original)
+      const idsOriginales = new Set(initialPedido.productos_pedidos.map(pp => pp.producto));
+      const nuevos = seleccionados
+        .filter(p => !idsOriginales.has(p.id) && cantidades[p.id] > 0)
+        .map(p => ({
+          producto: p.id,
+          producto_nombre: p.nombre,
+          cantidad: cantidades[p.id],
+          subtotal: ((cantidades[p.id] * parseFloat(p.precio)) + (cantidades[p.id] * extraPorProd)).toFixed(2),
+        }));
+      productosFinales = [...originales, ...nuevos];
+    } else {
+      productosFinales = seleccionados.map(p => ({
+        producto: p.id,
+        producto_nombre: p.nombre,
+        cantidad: cantidades[p.id],
+        subtotal: ((cantidades[p.id] * parseFloat(p.precio)) + (cantidades[p.id] * extraPorProd)).toFixed(2),
+      }));
+    }
 
     const payload = {
       mesa: Number(mesaId),
@@ -65,7 +89,7 @@ export default function AgregarProductos() {
       estatus: "ocupado",
       para_llevar: paraLlevar,
       costo_extra_llevar: costoLlevar,
-      productos_pedidos,
+      productos_pedidos: productosFinales,
     };
 
     setEnviando(true);
@@ -81,8 +105,14 @@ export default function AgregarProductos() {
 
   const categorias = ["Todos", ...new Set(productos.map(p => p.categoria || "Sin categoría"))];
 
+  const idsOriginales = initialPedido?.productos_pedidos
+    ? new Set(initialPedido.productos_pedidos.map(pp => pp.producto))
+    : new Set();
+
   const productosFiltrados = productos
     .filter(p => p.activo !== false)
+    // When editing existing pedido, only show products not already in the order
+    .filter(p => !initialPedido || !idsOriginales.has(p.id))
     .filter(p => categoriaActiva === "Todos" || (p.categoria || "Sin categoría") === categoriaActiva)
     .filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase()));
 
@@ -138,9 +168,10 @@ export default function AgregarProductos() {
         {productosFiltrados.map(p => (
           <div key={p.id} className="wf-box" style={{ padding: 10 }}>
             <div className="row" style={{ gap: 10 }}>
-              <div className="wf-img" style={{ width: 48, height: 48 }}>
-                <span style={{ background: "var(--sj-paper)", padding: "1px 6px", borderRadius: 4, fontSize: 9 }}>foto</span>
-              </div>
+              {p.imagen
+                ? <img src={p.imagen} alt={p.nombre} style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", border: "1.5px solid var(--sj-line)", flexShrink: 0 }} />
+                : <div className="wf-img" style={{ width: 48, height: 48 }}><span style={{ background: "var(--sj-paper)", padding: "1px 6px", borderRadius: 4, fontSize: 9 }}>foto</span></div>
+              }
               <div style={{ flex: 1 }}>
                 <div className="wf-h3">{p.nombre}</div>
                 <div className="wf-sm">
