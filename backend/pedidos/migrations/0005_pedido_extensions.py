@@ -5,11 +5,10 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('pedidos', '0003_factura'),
+        ('pedidos', '0004_extras'),
     ]
 
     operations = [
-        # New fields on Pedido
         migrations.AddField(
             model_name='pedido',
             name='tipo',
@@ -28,7 +27,6 @@ class Migration(migrations.Migration):
             name='costo_extra_llevar',
             field=models.DecimalField(decimal_places=2, default=0, max_digits=10),
         ),
-        # New fields on ProductoPedido
         migrations.AddField(
             model_name='productopedido',
             name='listo_cocina',
@@ -39,7 +37,6 @@ class Migration(migrations.Migration):
             name='producto_nombre',
             field=models.CharField(blank=True, max_length=100),
         ),
-        # Alter estatus choices (soft — keeps existing data)
         migrations.AlterField(
             model_name='pedido',
             name='estatus',
@@ -48,7 +45,6 @@ class Migration(migrations.Migration):
                 default='ocupado', max_length=50
             ),
         ),
-        # CierreDia
         migrations.CreateModel(
             name='CierreDia',
             fields=[
@@ -61,7 +57,6 @@ class Migration(migrations.Migration):
                 ('creado_en', models.DateTimeField(auto_now_add=True)),
             ],
         ),
-        # MovimientoCaja
         migrations.CreateModel(
             name='MovimientoCaja',
             fields=[
