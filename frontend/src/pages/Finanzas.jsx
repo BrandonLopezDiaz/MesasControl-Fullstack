@@ -268,9 +268,9 @@ function CierreDia() {
 
       {resultado && (
         <div className="wf-box" style={{ padding: 16, marginBottom: 20, borderColor: "var(--sj-green-d)", background: "var(--sj-green-l)" }}>
-          <div className="wf-h2" style={{ marginBottom: 10 }}>Cierre — {resultado.fecha}</div>
+          <div className="wf-h2" style={{ marginBottom: 10 }}>Cierre — {resultado.fecha} · Turno {resultado.turno}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px,1fr))", gap: 8 }}>
-            <KPI label="Ventas del día" value={`$${parseFloat(resultado.total_ventas).toFixed(2)}`} />
+            <KPI label="Ventas del turno" value={`$${parseFloat(resultado.total_ventas).toFixed(2)}`} />
             <KPI label="Comandas" value={resultado.total_comandas} />
             <KPI label="Canceladas" value={resultado.canceladas} />
             <KPI label="Esperado en caja" value={`$${resultado.dinero_esperado?.toFixed(2)}`} />
@@ -285,9 +285,12 @@ function CierreDia() {
             {cierres.map(c => (
               <div key={c.id} className="wf-box" style={{ padding: "10px 14px" }}>
                 <div className="between">
-                  <span className="wf-h3">{c.fecha}</span>
+                  <div>
+                    <span className="wf-h3">{c.fecha}</span>
+                    <span className="wf-chip" style={{ marginLeft: 8, fontSize: 13 }}>Turno {c.turno}</span>
+                  </div>
                   <div className="row" style={{ gap: 12 }}>
-                    <span className="wf-sm">{c.total_comandas} comandas</span>
+                    <span className="wf-sm">{c.total_comandas} cmd</span>
                     <span className="wf-h3" style={{ color: "var(--sj-green-d)" }}>${parseFloat(c.total_ventas).toFixed(2)}</span>
                   </div>
                 </div>

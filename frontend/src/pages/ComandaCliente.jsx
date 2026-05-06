@@ -143,9 +143,25 @@ function ComandaVista({ pedido, mesaId, navigate, total, received, cambio, diner
 
       <div className="col">
         {pedido.productos_pedidos.map(item => (
-          <div key={item.id} className="wf-box" style={{ padding: "10px 12px" }}>
+          <div
+            key={item.id}
+            className="wf-box"
+            style={{
+              padding: "10px 12px",
+              background: item.listo_cocina ? "var(--sj-green-l)" : "var(--sj-paper)",
+              opacity: item.listo_cocina ? 0.75 : 1,
+            }}
+          >
             <div className="between">
-              <div className="wf-h3">{item.producto_nombre}</div>
+              <div className="row" style={{ gap: 6 }}>
+                {item.listo_cocina && <span style={{ color: "var(--sj-green-d)", fontSize: 16 }}>✓</span>}
+                <div
+                  className="wf-h3"
+                  style={item.listo_cocina ? { textDecoration: "line-through", color: "var(--sj-ink-2)" } : {}}
+                >
+                  {item.producto_nombre}
+                </div>
+              </div>
               <div className="wf-sm" style={{ marginRight: 8 }}>× {item.cantidad}</div>
             </div>
             <div className="between" style={{ marginTop: 4 }}>

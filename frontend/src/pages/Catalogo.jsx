@@ -134,7 +134,18 @@ export default function Catalogo() {
                       }
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <span className="wf-h3">{p.nombre}</span>
-                        {!p.activo && <span className="wf-chip" style={{ marginLeft: 8, fontSize: 12 }}>inactivo</span>}
+                        <span
+                          className="wf-chip"
+                          style={{
+                            marginLeft: 8,
+                            fontSize: 12,
+                            background: p.activo ? "var(--sj-green-l)" : "oklch(0.94 0.04 25)",
+                            borderColor: p.activo ? "var(--sj-green-d)" : "var(--sj-red)",
+                            color: p.activo ? "var(--sj-green-d)" : "var(--sj-red)",
+                          }}
+                        >
+                          {p.activo ? "activo" : "inactivo"}
+                        </span>
                       </div>
                       <span className="wf-h3" style={{ color: "var(--sj-green-d)", flexShrink: 0 }}>${parseFloat(p.precio).toFixed(2)}</span>
                       <button className="wf-btn sm ghost" onClick={() => openEditP(p)}>editar</button>
@@ -149,29 +160,16 @@ export default function Catalogo() {
 
         {/* ── Configuraciones ── */}
         {seccion === "configuraciones" && (
-          <>
-            <div className="between" style={{ marginBottom: 14 }}>
-              <div className="wf-h1">Configuraciones</div>
-              <button className="wf-btn primary" onClick={openNewC}>+ Nueva</button>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {configs.map(c => (
-                <div key={c.id} className="wf-box" style={{ padding: "12px 14px" }}>
-                  <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div className="wf-h3">{c.clave}</div>
-                      <div className="wf-sm">{c.descripcion}</div>
-                    </div>
-                    <div className="row" style={{ gap: 8, flexShrink: 0 }}>
-                      <span className="wf-chip gold" style={{ fontFamily: "'Caveat',cursive", fontSize: 18 }}>{c.valor}</span>
-                      <button className="wf-btn sm ghost" onClick={() => openEditC(c)}>editar</button>
-                      <button className="wf-btn sm danger" onClick={() => delC(c)}>✕</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          <ConfiguracionesPanel
+            configs={configs}
+            onSave={async (id, valor) => {
+              await updateConfiguracion(id, { valor: String(valor) });
+              loadConfigs();
+            }}
+            openNewC={openNewC}
+            openEditC={openEditC}
+            delC={delC}
+          />
         )}
 
         {/* ── Temas ── */}
@@ -241,7 +239,43 @@ export default function Catalogo() {
             <input className="wf-input" type="number" step="0.01" value={formP.precio} onChange={e => setFormP(f => ({ ...f, precio: e.target.value }))} />
           </Field>
           <Field label="Categoría">
-            <input className="wf-input" value={formP.categoria} onChange={e => setFormP(f => ({ ...f, categoria: e.target.value }))} placeholder="Caldos, Bebidas…" />
+            <div style={{ display: "flex", gap: 6 }}>
+              <select
+                className="wf-input"
+                style={{ flex: 1 }}
+                value={formP.categoria}
+                onChange={e => {
+                  if (e.target.value === "__nueva__") return;
+                  setFormP(f => ({ ...f, categoria: e.target.value }));
+                }}
+              >
+                <option value="">Sin categoría</option>
+                {[...new Set(productos.map(p => p.categoria).filter(Boolean))].map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+                <option value="__nueva__" disabled>── Nueva ──</option>
+              </select>
+              <input
+                className="wf-input"
+                style={{ flex: 1 }}
+                placeholder="Nueva categoría…"
+                value={formP._catNueva || ""}
+                onChange={e => setFormP(f => ({ ...f, _catNueva: e.target.value }))}
+                onBlur={e => {
+                  if (e.target.value.trim()) setFormP(f => ({ ...f, categoria: e.target.value.trim(), _catNueva: "" }));
+                }}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && e.target.value.trim()) {
+                    setFormP(f => ({ ...f, categoria: e.target.value.trim(), _catNueva: "" }));
+                  }
+                }}
+              />
+            </div>
+            {formP.categoria && (
+              <div className="wf-sm" style={{ marginTop: 4 }}>
+                Categoría seleccionada: <strong>{formP.categoria}</strong>
+              </div>
+            )}
           </Field>
           <Field label="Imagen del producto">
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -299,6 +333,153 @@ export default function Catalogo() {
         </Modal>
       )}
     </div>
+  );
+}
+
+/* ── ConfiguracionesPanel ── */
+function ConfiguracionesPanel({ configs, onSave, openNewC, openEditC, delC }) {
+  const KNOWN = {
+    tiempo_alerta_cocina: {
+      label: "⏱️ Tiempo de alerta en cocina",
+      desc: "Minutos antes de que una comanda se marque como demorada",
+      type: "slider", min: 5, max: 60, step: 5, unit: "min",
+    },
+    costo_extra_llevar: {
+      label: "🛍️ Costo extra por producto para llevar",
+      desc: "Se agrega automáticamente cuando el pedido es para llevar",
+      type: "number", min: 0, max: 500, step: 5, unit: "$",
+    },
+  };
+
+  const knownKeys = Object.keys(KNOWN);
+  const knownConfigs = configs.filter(c => knownKeys.includes(c.clave));
+  const otherConfigs = configs.filter(c => !knownKeys.includes(c.clave));
+
+  return (
+    <>
+      <div className="between" style={{ marginBottom: 14 }}>
+        <div className="wf-h1">Configuraciones</div>
+        <button className="wf-btn sm ghost" onClick={openNewC}>+ Personalizada</button>
+      </div>
+
+      {/* Known system configs — friendly UI */}
+      <div className="wf-h3" style={{ marginBottom: 8 }}>Ajustes del sistema</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {knownKeys.map(clave => {
+          const cfg = knownConfigs.find(c => c.clave === clave);
+          if (!cfg) return null;
+          const meta = KNOWN[clave];
+          const val = parseFloat(cfg.valor) || 0;
+
+          return (
+            <div key={clave} className="wf-box bold" style={{ padding: 16 }}>
+              <div className="between" style={{ marginBottom: 10 }}>
+                <div>
+                  <div className="wf-h3">{meta.label}</div>
+                  <div className="wf-sm">{meta.desc}</div>
+                </div>
+                <div style={{
+                  fontFamily: "'Caveat', cursive",
+                  fontWeight: 700,
+                  fontSize: 32,
+                  color: "var(--sj-green-d)",
+                  minWidth: 60,
+                  textAlign: "right",
+                }}>
+                  {meta.unit === "$" ? `$${val}` : `${val}${meta.unit}`}
+                </div>
+              </div>
+
+              {meta.type === "slider" && (
+                <div>
+                  <input
+                    type="range"
+                    min={meta.min}
+                    max={meta.max}
+                    step={meta.step}
+                    value={val}
+                    onChange={e => onSave(cfg.id, e.target.value)}
+                    style={{ width: "100%", accentColor: "var(--sj-green)" }}
+                  />
+                  <div className="between" style={{ marginTop: 2 }}>
+                    <span className="wf-sm">{meta.min}{meta.unit}</span>
+                    <span className="wf-sm">{meta.max}{meta.unit}</span>
+                  </div>
+                  <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                    {[5, 10, 15, 20, 30, 45].map(v => (
+                      <span
+                        key={v}
+                        className="wf-chip"
+                        style={{
+                          cursor: "pointer",
+                          fontSize: 14,
+                          background: val === v ? "var(--sj-green-l)" : undefined,
+                          borderColor: val === v ? "var(--sj-green-d)" : undefined,
+                          color: val === v ? "var(--sj-green-d)" : undefined,
+                        }}
+                        onClick={() => onSave(cfg.id, v)}
+                      >
+                        {v}{meta.unit}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {meta.type === "number" && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button
+                    className="wf-btn sm"
+                    style={{ background: "oklch(0.94 0.04 25)" }}
+                    onClick={() => onSave(cfg.id, Math.max(meta.min, val - meta.step))}
+                  >−{meta.step}</button>
+                  <input
+                    type="number"
+                    className="wf-input"
+                    style={{ flex: 1, textAlign: "center", fontFamily: "'Caveat',cursive", fontSize: 22, fontWeight: 700 }}
+                    value={val}
+                    min={meta.min}
+                    max={meta.max}
+                    step={meta.step}
+                    onChange={e => onSave(cfg.id, e.target.value)}
+                  />
+                  <button
+                    className="wf-btn sm"
+                    style={{ background: "var(--sj-green-l)", color: "var(--sj-green-d)" }}
+                    onClick={() => onSave(cfg.id, Math.min(meta.max, val + meta.step))}
+                  >+{meta.step}</button>
+                  <span className="wf-sm">{meta.unit} por prod</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Other / custom configs */}
+      {otherConfigs.length > 0 && (
+        <>
+          <div className="wf-h3" style={{ marginTop: 20, marginBottom: 8 }}>Configuraciones personalizadas</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {otherConfigs.map(c => (
+              <div key={c.id} className="wf-box" style={{ padding: "12px 14px" }}>
+                <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="wf-h3">{c.clave}</div>
+                    <div className="wf-sm">{c.descripcion}</div>
+                  </div>
+                  <div className="row" style={{ gap: 8, flexShrink: 0 }}>
+                    <span className="wf-chip gold" style={{ fontFamily: "'Caveat',cursive", fontSize: 18 }}>{c.valor}</span>
+                    <button className="wf-btn sm ghost" onClick={() => openEditC(c)}>editar</button>
+                    <button className="wf-btn sm danger" onClick={() => delC(c)}>✕</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </>
   );
 }
 

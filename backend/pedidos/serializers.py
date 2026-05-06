@@ -109,9 +109,9 @@ class CierreDiaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CierreDia
-        fields = ['id', 'fecha', 'cantidad_inicial', 'total_ventas',
+        fields = ['id', 'fecha', 'turno', 'cantidad_inicial', 'total_ventas',
                   'total_comandas', 'canceladas', 'creado_en', 'movimientos', 'dinero_esperado']
-        read_only_fields = ['creado_en', 'total_ventas', 'total_comandas', 'canceladas']
+        read_only_fields = ['creado_en', 'turno', 'total_ventas', 'total_comandas', 'canceladas']
 
     def get_dinero_esperado(self, obj):
         movimientos = obj.movimientos.all()
@@ -121,18 +121,31 @@ class CierreDiaSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         from django.db.models import Sum
-        from pedidos.models import Factura as F
         movimientos_data = validated_data.pop('movimientos', [])
         fecha = validated_data['fecha']
 
-        pedidos_dia = Pedido.objects.filter(fecha_creacion__date=fecha)
-        total_ventas = pedidos_dia.filter(estatus='finalizado').aggregate(
+        # Determine turno number (how many cierres already exist today)
+        cierres_hoy = CierreDia.objects.filter(fecha=fecha).order_by('-turno')
+        turno = (cierres_hoy.first().turno + 1) if cierres_hoy.exists() else 1
+
+        # Only count pedidos finalizados AFTER the last cierre of today (or all day if first)
+        if cierres_hoy.exists():
+            ultimo_cierre_dt = cierres_hoy.first().creado_en
+            pedidos_periodo = Pedido.objects.filter(
+                fecha_creacion__date=fecha,
+                fecha_creacion__gt=ultimo_cierre_dt,
+            )
+        else:
+            pedidos_periodo = Pedido.objects.filter(fecha_creacion__date=fecha)
+
+        total_ventas = pedidos_periodo.filter(estatus='finalizado').aggregate(
             t=Sum('factura__total'))['t'] or 0
-        total_comandas = pedidos_dia.filter(estatus='finalizado').count()
-        canceladas = pedidos_dia.filter(estatus='cancelado').count()
+        total_comandas = pedidos_periodo.filter(estatus='finalizado').count()
+        canceladas = pedidos_periodo.filter(estatus='cancelado').count()
 
         cierre = CierreDia.objects.create(
             **validated_data,
+            turno=turno,
             total_ventas=total_ventas,
             total_comandas=total_comandas,
             canceladas=canceladas,

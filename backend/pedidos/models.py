@@ -50,15 +50,19 @@ class Factura(models.Model):
 
 
 class CierreDia(models.Model):
-    fecha = models.DateField(unique=True)
+    fecha = models.DateField()  # No longer unique — multiple shifts per day
+    turno = models.IntegerField(default=1)
     cantidad_inicial = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_ventas = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_comandas = models.IntegerField(default=0)
     canceladas = models.IntegerField(default=0)
     creado_en = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ('fecha', 'turno')
+
     def __str__(self):
-        return f'Cierre {self.fecha}'
+        return f'Cierre {self.fecha} Turno {self.turno}'
 
 
 class MovimientoCaja(models.Model):
