@@ -52,28 +52,45 @@ export default function AgregarProductos() {
 
     const extraPorProd = paraLlevar ? costoLlevar : 0;
 
-    // If editing existing pedido, only send NEW products (not the original ones)
-    // The backend will replace all productos_pedidos, so we merge old + new
     let productosFinales;
     if (initialPedido?.productos_pedidos) {
-      // Start from original items
-      const originales = initialPedido.productos_pedidos.map(pp => ({
+      // Build a map: producto_id -> {original pp data, extra cantidad added now}
+      const originalMap = {};
+      initialPedido.productos_pedidos.forEach(pp => {
+        originalMap[pp.producto] = { ...pp };
+      });
+
+      // Merge: for products already in order, ADD the new cantidades on top
+      // For brand new products, create fresh entries
+      const merged = { ...originalMap };
+      seleccionados.forEach(p => {
+        if (merged[p.id]) {
+          // Product already existed — add the new quantity to original
+          const orig = merged[p.id];
+          const newCantidad = orig.cantidad + cantidades[p.id];
+          const precioPorUnidad = parseFloat(orig.subtotal) / orig.cantidad;
+          merged[p.id] = {
+            ...orig,
+            cantidad: newCantidad,
+            subtotal: (newCantidad * precioPorUnidad).toFixed(2),
+          };
+        } else {
+          // Brand new product
+          merged[p.id] = {
+            producto: p.id,
+            producto_nombre: p.nombre,
+            cantidad: cantidades[p.id],
+            subtotal: ((cantidades[p.id] * parseFloat(p.precio)) + (cantidades[p.id] * extraPorProd)).toFixed(2),
+          };
+        }
+      });
+
+      productosFinales = Object.values(merged).map(pp => ({
         producto: pp.producto,
         producto_nombre: pp.producto_nombre,
         cantidad: pp.cantidad,
         subtotal: pp.subtotal,
       }));
-      // Find truly new products (not in original)
-      const idsOriginales = new Set(initialPedido.productos_pedidos.map(pp => pp.producto));
-      const nuevos = seleccionados
-        .filter(p => !idsOriginales.has(p.id) && cantidades[p.id] > 0)
-        .map(p => ({
-          producto: p.id,
-          producto_nombre: p.nombre,
-          cantidad: cantidades[p.id],
-          subtotal: ((cantidades[p.id] * parseFloat(p.precio)) + (cantidades[p.id] * extraPorProd)).toFixed(2),
-        }));
-      productosFinales = [...originales, ...nuevos];
     } else {
       productosFinales = seleccionados.map(p => ({
         producto: p.id,
@@ -105,14 +122,8 @@ export default function AgregarProductos() {
 
   const categorias = ["Todos", ...new Set(productos.map(p => p.categoria || "Sin categoría"))];
 
-  const idsOriginales = initialPedido?.productos_pedidos
-    ? new Set(initialPedido.productos_pedidos.map(pp => pp.producto))
-    : new Set();
-
   const productosFiltrados = productos
     .filter(p => p.activo !== false)
-    // When editing existing pedido, only show products not already in the order
-    .filter(p => !initialPedido || !idsOriginales.has(p.id))
     .filter(p => categoriaActiva === "Todos" || (p.categoria || "Sin categoría") === categoriaActiva)
     .filter(p => p.nombre.toLowerCase().includes(busqueda.toLowerCase()));
 

@@ -196,6 +196,8 @@ function CierreDia() {
   const [cantidadInicial, setCantidadInicial] = useState("");
   const [movimientos, setMovimientos] = useState([]);
   const [nuevoMov, setNuevoMov] = useState({ tipo: "gasto", descripcion: "", monto: "" });
+  const [movErrors, setMovErrors] = useState({});
+  const [cierreError, setCierreError] = useState("");
   const [cierres, setCierres] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const [resultado, setResultado] = useState(null);
@@ -203,21 +205,38 @@ function CierreDia() {
   useEffect(() => { fetchCierres().then(setCierres).catch(() => {}); }, []);
 
   const agregarMov = () => {
-    if (!nuevoMov.monto) return;
+    const errs = {};
+    if (!nuevoMov.descripcion.trim()) errs.descripcion = "La descripción es requerida";
+    if (!nuevoMov.monto || parseFloat(nuevoMov.monto) <= 0) errs.monto = "Ingresa un monto válido";
+    if (Object.keys(errs).length) { setMovErrors(errs); return; }
+    setMovErrors({});
     setMovimientos(m => [...m, { ...nuevoMov, monto: parseFloat(nuevoMov.monto) }]);
     setNuevoMov({ tipo: "gasto", descripcion: "", monto: "" });
   };
 
   const handleGuardar = async () => {
+    if (!fecha) { setCierreError("Selecciona una fecha para el cierre"); return; }
+    setCierreError("");
     setGuardando(true);
     try {
       const res = await createCierre({ fecha, cantidad_inicial: parseFloat(cantidadInicial) || 0, movimientos });
       setResultado(res);
       fetchCierres().then(setCierres).catch(() => {});
     } catch (e) {
-      alert("Error: " + JSON.stringify(e.response?.data || e.message));
+      const data = e.response?.data;
+      if (data && typeof data === "object") {
+        const msg = Object.entries(data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`).join(" · ");
+        setCierreError(msg);
+      } else {
+        setCierreError("Error al generar el cierre. Intenta de nuevo.");
+      }
     } finally { setGuardando(false); }
   };
+
+  const inputStyle = (field) => ({
+    borderColor: movErrors[field] ? "var(--sj-red)" : undefined,
+    boxShadow: movErrors[field] ? "0 0 0 2px oklch(0.94 0.04 25)" : undefined,
+  });
 
   const gastos = movimientos.filter(m => m.tipo === "gasto").reduce((s, m) => s + m.monto, 0);
   const retiros = movimientos.filter(m => m.tipo === "retiro").reduce((s, m) => s + m.monto, 0);
@@ -229,7 +248,7 @@ function CierreDia() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: 14, marginBottom: 14 }}>
           <div>
             <div className="wf-sm" style={{ marginBottom: 4 }}>Fecha</div>
-            <DatePicker value={fecha} onChange={setFecha} />
+            <DatePicker value={fecha} onChange={v => { setFecha(v); setCierreError(""); }} />
           </div>
           <div>
             <div className="wf-sm" style={{ marginBottom: 4 }}>Cantidad inicial ($)</div>
@@ -238,19 +257,43 @@ function CierreDia() {
         </div>
 
         <div className="wf-h3" style={{ marginBottom: 8 }}>Gastos y retiros</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-          <select className="wf-input" style={{ width: 110 }} value={nuevoMov.tipo} onChange={e => setNuevoMov(m => ({ ...m, tipo: e.target.value }))}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+          <select
+            className="wf-input"
+            style={{ width: 110 }}
+            value={nuevoMov.tipo}
+            onChange={e => setNuevoMov(m => ({ ...m, tipo: e.target.value }))}
+          >
             <option value="gasto">Gasto</option>
             <option value="retiro">Retiro</option>
           </select>
-          <input className="wf-input" style={{ flex: 1, minWidth: 120 }} placeholder="Descripción" value={nuevoMov.descripcion} onChange={e => setNuevoMov(m => ({ ...m, descripcion: e.target.value }))} />
-          <input type="number" className="wf-input" style={{ width: 90 }} placeholder="$" value={nuevoMov.monto} onChange={e => setNuevoMov(m => ({ ...m, monto: e.target.value }))} />
+          <div style={{ flex: 1, minWidth: 120 }}>
+            <input
+              className="wf-input"
+              style={{ width: "100%", ...inputStyle("descripcion") }}
+              placeholder="Descripción *"
+              value={nuevoMov.descripcion}
+              onChange={e => { setNuevoMov(m => ({ ...m, descripcion: e.target.value })); if (movErrors.descripcion) setMovErrors(er => ({ ...er, descripcion: "" })); }}
+            />
+            {movErrors.descripcion && <div style={{ color: "var(--sj-red)", fontSize: 13, marginTop: 3, fontFamily: "'Patrick Hand',cursive" }}>{movErrors.descripcion}</div>}
+          </div>
+          <div>
+            <input
+              type="number"
+              className="wf-input"
+              style={{ width: 90, ...inputStyle("monto") }}
+              placeholder="$ *"
+              value={nuevoMov.monto}
+              onChange={e => { setNuevoMov(m => ({ ...m, monto: e.target.value })); if (movErrors.monto) setMovErrors(er => ({ ...er, monto: "" })); }}
+            />
+            {movErrors.monto && <div style={{ color: "var(--sj-red)", fontSize: 13, marginTop: 3, fontFamily: "'Patrick Hand',cursive" }}>{movErrors.monto}</div>}
+          </div>
           <button className="wf-btn gold" onClick={agregarMov}>+ Agregar</button>
         </div>
 
         {movimientos.map((m, i) => (
           <div key={i} className="between wf-sm" style={{ padding: "4px 0", borderBottom: "1px dashed var(--sj-line)" }}>
-            <span>{m.tipo === "gasto" ? "💸" : "🏦"} {m.descripcion || m.tipo}</span>
+            <span>{m.tipo === "gasto" ? "💸" : "🏦"} {m.descripcion}</span>
             <div className="row">
               <span style={{ color: "var(--sj-red)" }}>-${m.monto.toFixed(2)}</span>
               <button className="wf-btn sm ghost" onClick={() => setMovimientos(ms => ms.filter((_, j) => j !== i))}>✕</button>
@@ -261,7 +304,21 @@ function CierreDia() {
           <div className="wf-sm" style={{ marginTop: 6 }}>Gastos: ${gastos.toFixed(2)} · Retiros: ${retiros.toFixed(2)}</div>
         )}
 
-        <button className="wf-btn primary" style={{ marginTop: 16, width: "100%" }} onClick={handleGuardar} disabled={guardando}>
+        {cierreError && (
+          <div style={{
+            marginTop: 10, padding: "8px 12px",
+            background: "oklch(0.94 0.04 25)",
+            border: "1.5px solid var(--sj-red)",
+            borderRadius: 10,
+            color: "var(--sj-red)",
+            fontFamily: "'Patrick Hand',cursive",
+            fontSize: 16,
+          }}>
+            ⚠️ {cierreError}
+          </div>
+        )}
+
+        <button className="wf-btn primary" style={{ marginTop: 14, width: "100%" }} onClick={handleGuardar} disabled={guardando}>
           {guardando ? "Guardando…" : "Generar cierre"}
         </button>
       </div>

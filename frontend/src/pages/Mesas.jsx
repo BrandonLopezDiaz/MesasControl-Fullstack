@@ -87,8 +87,13 @@ export default function Mesas() {
       if (!cancelled) setMesaStates(states);
 
       try {
-        const todos = await fetchPedidos({ estatus: "ocupado" });
-        if (!cancelled) setExtraPedidos(todos.filter(p => p.tipo && p.tipo !== "mesa"));
+        // Extras should stay visible until cobrado, regardless of kitchen status
+        const [ocupados, listos] = await Promise.all([
+          fetchPedidos({ estatus: "ocupado" }),
+          fetchPedidos({ estatus: "listo_cocina" }),
+        ]);
+        const todosActivos = [...ocupados, ...listos];
+        if (!cancelled) setExtraPedidos(todosActivos.filter(p => p.tipo && p.tipo !== "mesa"));
       } catch { }
 
       if (!cancelled) refreshLocks();
