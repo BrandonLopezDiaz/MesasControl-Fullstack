@@ -184,6 +184,7 @@ export default function ComandaCliente() {
         <DividirCuenta
           pedido={pedido}
           onFinalizar={handleFinalizar}
+          show={show}
         />
       )}
     </div>
@@ -354,7 +355,7 @@ function ComandaVista({
 }
 
 /* ── Dividir cuenta ── */
-function DividirCuenta({ pedido, onFinalizar }) {
+function DividirCuenta({ pedido, onFinalizar, show }) {
   const [personas, setPersonas] = useState(2);
   const [asignaciones, setAsignaciones] = useState({});
   const [pagos, setPagos] = useState({});
