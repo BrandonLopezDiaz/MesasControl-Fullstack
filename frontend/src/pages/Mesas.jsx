@@ -69,7 +69,7 @@ const mesaColor = (info, locked, limiteMin) => {
   return 'oklch(0.95 0.07 85)';
 };
 
-const mesaNumColor = (info, locked) => {
+const mesaNumColor = (info, locked, limiteMin) => {
   if (locked) return 'var(--sj-red)';
   if (!info || info.state === 'free') return 'var(--sj-green-d)';
   if (info.state === 'listo') return 'var(--sj-gold-d)';
@@ -242,7 +242,7 @@ export default function Mesas() {
               onClick={() => handleMesaClick(mesa)}
               title={locked ? 'Otro camarero está trabajando en esta mesa' : ''}
             >
-              <div className="wf-mesa__num" style={{ color: mesaNumColor(info, locked) }}>{mesa}</div>
+              <div className="wf-mesa__num" style={{ color: mesaNumColor(info, locked, limiteMin) }}>{mesa}</div>
               {locked && <div className="wf-mesa__lbl">🔒 en uso</div>}
               {!locked && info.state === 'free' && <div className="wf-mesa__lbl">libre</div>}
               {!locked && info.state === 'occupied' && (

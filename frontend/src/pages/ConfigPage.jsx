@@ -8,10 +8,6 @@ function esFeature(clave) {
   return FEATURE_KEYS.includes(clave);
 }
 
-function esBooleano(clave) {
-  return esFeature(clave);
-}
-
 export default function ConfigPage() {
   const [configs, setConfigs] = useState([]);
   const [editando, setEditando] = useState(null); // id del config siendo editado
@@ -70,8 +66,6 @@ export default function ConfigPage() {
       setSaving(false);
     }
   };
-
-  const { theme: _, setTheme: _st, ...cfgRest } = {};
 
   return (
     <div className="page fade-in">
