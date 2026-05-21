@@ -19,6 +19,11 @@ PRODUCTOS_INICIALES = [
 CONFIGS_INICIALES = [
     {"clave": "tiempo_alerta_cocina", "valor": "15",  "descripcion": "Minutos antes de mostrar alerta en cocina"},
     {"clave": "costo_extra_llevar",   "valor": "10",  "descripcion": "Costo adicional por producto para llevar ($MXN)"},
+    {"clave": "nombre_local",         "valor": "Mi Local", "descripcion": "Nombre del restaurante/local"},
+    {"clave": "feature_barra",        "valor": "true", "descripcion": "Mostrar tipo Barra en pantalla principal"},
+    {"clave": "feature_para_llevar",  "valor": "true", "descripcion": "Mostrar tipo Para llevar en pantalla principal"},
+    {"clave": "feature_rapido",       "valor": "true", "descripcion": "Mostrar tipo Pedido rápido en pantalla principal"},
+    {"clave": "propina_sugerida",     "valor": "10",   "descripcion": "Porcentaje de propina sugerido (%)"},
 ]
 
 

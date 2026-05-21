@@ -1,8 +1,14 @@
-// src/pages/ComandaCliente.jsx
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { fetchPedidoDetail, updatePedido } from "../api/ListaProductos";
-import CambioSugerencias from "./CambioSugerencias";
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { fetchPedidoDetail, updatePedido } from '../api/ListaProductos';
+import { ESTATUS } from '../utils/constants';
+import { fmtMoney, fmtTotal } from '../utils/format';
+import CambioSugerencias from './CambioSugerencias';
+
+const PERSONA_COLORS = [
+  'var(--sj-green)', 'var(--sj-gold-d)', 'var(--sj-red)',
+  'oklch(0.52 0.16 270)', 'oklch(0.55 0.14 200)',
+];
 
 export default function ComandaCliente() {
   const { mesaId } = useParams();
@@ -10,8 +16,9 @@ export default function ComandaCliente() {
   const location = useLocation();
 
   const [pedido, setPedido] = useState(location.state?.pedido || null);
-  const [dineroRecibido, setDineroRecibido] = useState("");
-  const [vista, setVista] = useState("comanda"); // "comanda" | "dividir"
+  const [dineroRecibido, setDineroRecibido] = useState('');
+  const [vista, setVista] = useState('comanda');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (pedido) return;
@@ -19,7 +26,8 @@ export default function ComandaCliente() {
       const data = await fetchPedidoDetail(mesaId);
       if (data.length) setPedido(data[0]);
     })();
-  }, [mesaId, pedido]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mesaId]);
 
   if (!pedido) return <div className="loading-screen">Cargando...</div>;
 
@@ -28,19 +36,19 @@ export default function ComandaCliente() {
   const cambio = Math.max(0, received - total);
 
   const etiqueta = () => {
-    if (pedido.tipo === "barra") return "🍺 Barra";
-    if (pedido.tipo === "para_llevar") return "🛍️ Para llevar";
-    if (pedido.tipo === "rapido") return "⚡ Pedido rápido";
+    if (pedido.tipo === 'barra') return '🍺 Barra';
+    if (pedido.tipo === 'para_llevar') return '🛍️ Para llevar';
+    if (pedido.tipo === 'rapido') return '⚡ Pedido rápido';
     return `Mesa ${mesaId}`;
   };
 
-  const buildPayloadBase = (estatus) => ({
+  const buildPayloadFromItems = (items, estatus) => ({
     mesa: pedido.mesa,
-    tipo: pedido.tipo || "mesa",
-    estatus,
+    tipo: pedido.tipo || 'mesa',
+    estatus: estatus || pedido.estatus,
     para_llevar: pedido.para_llevar,
     costo_extra_llevar: pedido.costo_extra_llevar,
-    productos_pedidos: pedido.productos_pedidos.map(item => ({
+    productos_pedidos: items.map((item) => ({
       producto: item.producto,
       producto_nombre: item.producto_nombre,
       cantidad: item.cantidad,
@@ -48,20 +56,65 @@ export default function ComandaCliente() {
     })),
   });
 
+  const buildPayloadBase = (estatus) =>
+    buildPayloadFromItems(pedido.productos_pedidos, estatus);
+
   const handleFinalizar = async () => {
-    if (!window.confirm("¿Finalizar y cobrar este pedido?")) return;
+    if (!window.confirm('¿Finalizar y cobrar este pedido?')) return;
     try {
-      await updatePedido(pedido.id, buildPayloadBase("finalizado"));
-      navigate("/");
-    } catch { alert("Error al finalizar. Intenta de nuevo."); }
+      await updatePedido(pedido.id, buildPayloadBase(ESTATUS.FINALIZADO));
+      navigate('/');
+    } catch {
+      alert('Error al finalizar. Intenta de nuevo.');
+    }
   };
 
   const handleCancelar = async () => {
-    if (!window.confirm("¿Cancelar este pedido? Esta acción no se puede deshacer.")) return;
+    if (!window.confirm('¿Cancelar este pedido? Esta acción no se puede deshacer.')) return;
     try {
-      await updatePedido(pedido.id, buildPayloadBase("cancelado"));
-      navigate("/");
-    } catch { alert("Error al cancelar. Intenta de nuevo."); }
+      await updatePedido(pedido.id, buildPayloadBase(ESTATUS.CANCELADO));
+      navigate('/');
+    } catch {
+      alert('Error al cancelar. Intenta de nuevo.');
+    }
+  };
+
+  const handleRemoveProduct = async (producto) => {
+    const nombre = producto.producto_nombre;
+    if (!window.confirm(`¿Eliminar "${nombre}" de la comanda?`)) return;
+    setSaving(true);
+    const items = pedido.productos_pedidos.filter((p) => p.producto !== producto.producto);
+    try {
+      const updated = await updatePedido(pedido.id, buildPayloadFromItems(items));
+      setPedido(updated);
+    } catch {
+      alert('Error al eliminar producto.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangeQuantity = async (producto, delta) => {
+    const newCantidad = producto.cantidad + delta;
+    if (newCantidad < 1) {
+      await handleRemoveProduct(producto);
+      return;
+    }
+    setSaving(true);
+    const precioUnitario = parseFloat(producto.subtotal) / producto.cantidad;
+    const items = pedido.productos_pedidos.map((p) =>
+      p.producto === producto.producto
+        ? { ...p, cantidad: newCantidad, subtotal: (precioUnitario * newCantidad).toFixed(2) }
+        : p,
+    );
+    try {
+      const updated = await updatePedido(pedido.id, buildPayloadFromItems(items));
+      setPedido(updated);
+    } catch {
+      alert('Error al cambiar cantidad.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const quickAmounts = [
@@ -73,10 +126,9 @@ export default function ComandaCliente() {
 
   return (
     <div className="page fade-in">
-      {/* Header */}
       <div className="between" style={{ marginBottom: 12 }}>
         <div className="row" style={{ gap: 8 }}>
-          <button className="wf-btn sm ghost" onClick={() => navigate("/")}>‹ atrás</button>
+          <button className="wf-btn sm ghost" onClick={() => navigate('/')}>‹ atrás</button>
           <div>
             <div className="wf-h1" style={{ fontSize: 28 }}>{etiqueta()}</div>
             <div className="wf-sm">comanda activa</div>
@@ -85,26 +137,25 @@ export default function ComandaCliente() {
         <span className="wf-chip red">en cocina</span>
       </div>
 
-      {/* Tab toggle */}
-      <div className="row" style={{ gap: 0, border: "2px solid var(--sj-line)", borderRadius: 12, overflow: "hidden" }}>
-        {["comanda", "dividir"].map(v => (
+      <div className="row" style={{ gap: 0, border: '2px solid var(--sj-line)', borderRadius: 12, overflow: 'hidden' }}>
+        {['comanda', 'dividir'].map((v) => (
           <button
             key={v}
             onClick={() => setVista(v)}
             style={{
-              flex: 1, padding: "10px 0",
+              flex: 1, padding: '10px 0',
               fontFamily: "'Patrick Hand',cursive", fontSize: 17,
-              border: "none", cursor: "pointer",
-              background: vista === v ? "var(--sj-green)" : "var(--sj-paper)",
-              color: vista === v ? "white" : "var(--sj-ink)",
+              border: 'none', cursor: 'pointer',
+              background: vista === v ? 'var(--sj-green)' : 'var(--sj-paper)',
+              color: vista === v ? 'white' : 'var(--sj-ink)',
             }}
           >
-            {v === "comanda" ? "🧾 Comanda" : "✂️ Dividir cuenta"}
+            {v === 'comanda' ? '🧾 Comanda' : '✂️ Dividir cuenta'}
           </button>
         ))}
       </div>
 
-      {vista === "comanda" && (
+      {vista === 'comanda' && (
         <ComandaVista
           pedido={pedido}
           mesaId={mesaId}
@@ -117,10 +168,13 @@ export default function ComandaCliente() {
           quickAmounts={quickAmounts}
           handleFinalizar={handleFinalizar}
           handleCancelar={handleCancelar}
+          onRemoveProduct={handleRemoveProduct}
+          onChangeQuantity={handleChangeQuantity}
+          saving={saving}
         />
       )}
 
-      {vista === "dividir" && (
+      {vista === 'dividir' && (
         <DividirCuenta
           pedido={pedido}
           onFinalizar={handleFinalizar}
@@ -131,7 +185,23 @@ export default function ComandaCliente() {
 }
 
 /* ── Vista comanda normal ── */
-function ComandaVista({ pedido, mesaId, navigate, total, received, cambio, dineroRecibido, setDineroRecibido, quickAmounts, handleFinalizar, handleCancelar }) {
+function ComandaVista({
+  pedido, mesaId, navigate, total, received, cambio,
+  dineroRecibido, setDineroRecibido, quickAmounts,
+  handleFinalizar, handleCancelar,
+  onRemoveProduct, onChangeQuantity, saving,
+}) {
+  const pendientes = pedido.productos_pedidos.filter((pp) => !pp.listo_cocina);
+  const hayPendientes = pendientes.length > 0;
+
+  const handleFinalizarClick = async () => {
+    const msg = hayPendientes
+      ? `⚠️ Hay ${pendientes.length} producto(s) pendientes en cocina.\n\n¿Finalizar igual?`
+      : '¿Finalizar y cobrar este pedido?';
+    if (!window.confirm(msg)) return;
+    await handleFinalizar();
+  };
+
   return (
     <>
       <div className="between" style={{ marginTop: 4, marginBottom: 4 }}>
@@ -141,81 +211,130 @@ function ComandaVista({ pedido, mesaId, navigate, total, received, cambio, diner
         </button>
       </div>
 
+      {hayPendientes && (
+        <div className="wf-chip red" style={{ padding: '6px 12px', fontSize: 15, marginBottom: 8 }}>
+          ⏳ {pendientes.length} producto(s) pendiente(s) en cocina
+        </div>
+      )}
+
       <div className="col">
-        {pedido.productos_pedidos.map(item => (
-          <div
-            key={item.id}
-            className="wf-box"
-            style={{
-              padding: "10px 12px",
-              background: item.listo_cocina ? "var(--sj-green-l)" : "var(--sj-paper)",
-              opacity: item.listo_cocina ? 0.75 : 1,
-            }}
-          >
-            <div className="between">
-              <div className="row" style={{ gap: 6 }}>
-                {item.listo_cocina && <span style={{ color: "var(--sj-green-d)", fontSize: 16 }}>✓</span>}
-                <div
-                  className="wf-h3"
-                  style={item.listo_cocina ? { textDecoration: "line-through", color: "var(--sj-ink-2)" } : {}}
-                >
-                  {item.producto_nombre}
+        {pedido.productos_pedidos.map((item) => {
+          const precioUnidad = parseFloat(item.subtotal) / item.cantidad;
+          const isReady = item.listo_cocina;
+          return (
+            <div
+              key={item.id}
+              className="wf-box"
+              style={{
+                padding: '10px 12px',
+                background: isReady ? 'var(--sj-green-l)' : 'var(--sj-paper)',
+                opacity: isReady ? 0.75 : 1,
+              }}
+            >
+              <div className="between" style={{ marginBottom: 4 }}>
+                <div className="row" style={{ gap: 6 }}>
+                  {isReady && <span style={{ color: 'var(--sj-green-d)', fontSize: 16 }}>✓</span>}
+                  <div
+                    className="wf-h3"
+                    style={isReady ? { textDecoration: 'line-through', color: 'var(--sj-ink-2)' } : {}}
+                  >
+                    {item.producto_nombre}
+                  </div>
                 </div>
+                {!isReady && (
+                  <button
+                    className="wf-btn sm ghost"
+                    style={{ color: 'var(--sj-red)', padding: '2px 6px', fontSize: 13 }}
+                    onClick={() => onRemoveProduct(item)}
+                    disabled={saving}
+                    title="Eliminar producto"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-              <div className="wf-sm" style={{ marginRight: 8 }}>× {item.cantidad}</div>
+              <div className="between">
+                <div className="row" style={{ gap: 4, alignItems: 'center' }}>
+                  {!isReady && (
+                    <button
+                      className="wf-btn sm ghost"
+                      style={{ padding: '2px 6px', fontSize: 16, fontWeight: 700 }}
+                      onClick={() => onChangeQuantity(item, -1)}
+                      disabled={saving}
+                    >
+                      −
+                    </button>
+                  )}
+                  <span className="wf-sm" style={{ fontWeight: 600, minWidth: 24, textAlign: 'center' }}>
+                    × {item.cantidad}
+                  </span>
+                  {!isReady && (
+                    <button
+                      className="wf-btn sm ghost"
+                      style={{ padding: '2px 6px', fontSize: 16, fontWeight: 700 }}
+                      onClick={() => onChangeQuantity(item, 1)}
+                      disabled={saving}
+                    >
+                      +
+                    </button>
+                  )}
+                  <span className="wf-sm" style={{ marginLeft: 4 }}>{fmtMoney(precioUnidad)} c/u</span>
+                </div>
+                <span className="wf-h3">{fmtMoney(item.subtotal)}</span>
+              </div>
             </div>
-            <div className="between" style={{ marginTop: 4 }}>
-              <span className="wf-sm">${(parseFloat(item.subtotal) / item.cantidad).toFixed(2)} c/u</span>
-              <span className="wf-h3">${parseFloat(item.subtotal).toFixed(2)}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="wf-box bold" style={{ padding: 12, background: "var(--sj-green-l)", borderColor: "var(--sj-green-d)" }}>
+      <div className="wf-box bold" style={{ padding: 12, background: 'var(--sj-green-l)', borderColor: 'var(--sj-green-d)' }}>
         <div className="between">
           <span className="wf-h2">Total</span>
-          <span className="wf-h1" style={{ fontSize: 36, color: "var(--sj-green-d)" }}>${total.toFixed(2)}</span>
+          <span className="wf-h1" style={{ fontSize: 36, color: 'var(--sj-green-d)' }}>{fmtTotal(total)}</span>
         </div>
       </div>
 
       <div className="wf-divider" />
 
-      {/* Dinero recibido */}
       <div>
         <div className="wf-sm" style={{ marginBottom: 4 }}>Dinero recibido</div>
-        <div className="wf-box" style={{ padding: "10px 14px" }}>
+        <div className="wf-box" style={{ padding: '10px 14px' }}>
           <div className="between">
             <input
               type="number"
               value={dineroRecibido}
-              onChange={e => setDineroRecibido(e.target.value)}
+              onChange={(e) => setDineroRecibido(e.target.value)}
               placeholder="$0"
-              style={{ border: "none", outline: "none", background: "transparent", fontSize: 28, fontFamily: "'Caveat',cursive", fontWeight: 700, width: "100%" }}
+              style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 28, fontFamily: "'Caveat',cursive", fontWeight: 700, width: '100%' }}
             />
-            <button className="wf-btn sm ghost" onClick={() => setDineroRecibido("")}>limpiar</button>
+            <button className="wf-btn sm ghost" onClick={() => setDineroRecibido('')}>limpiar</button>
           </div>
         </div>
-        <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-          {quickAmounts.map(a => (
-            <span key={a} className="wf-chip" style={{ cursor: "pointer" }} onClick={() => setDineroRecibido(String(a))}>${a}</span>
+        <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+          {quickAmounts.map((a) => (
+            <span key={a} className="wf-chip" style={{ cursor: 'pointer' }} onClick={() => setDineroRecibido(String(a))}>{fmtTotal(a)}</span>
           ))}
-          <span className="wf-chip gold" style={{ cursor: "pointer" }} onClick={() => setDineroRecibido(String(Math.ceil(total)))}>exacto</span>
+          <span className="wf-chip gold" style={{ cursor: 'pointer' }} onClick={() => setDineroRecibido(String(Math.ceil(total)))}>exacto</span>
         </div>
       </div>
 
       {received > 0 && (
-        <div className="wf-box" style={{ padding: 12, borderStyle: "dashed", borderColor: "var(--sj-gold-d)", background: "oklch(0.98 0.04 85)" }}>
+        <div className="wf-box" style={{ padding: 12, borderStyle: 'dashed', borderColor: 'var(--sj-gold-d)', background: 'oklch(0.98 0.04 85)' }}>
           <div className="between">
             <span className="wf-h3">Cambio</span>
-            <span className="wf-h1" style={{ fontSize: 30, color: "var(--sj-gold-d)" }}>${cambio.toFixed(0)}</span>
+            <span className="wf-h1" style={{ fontSize: 30, color: 'var(--sj-gold-d)' }}>{fmtTotal(cambio)}</span>
           </div>
-          {cambio > 0 && <><div className="wf-divider" /><CambioSugerencias dineroRecibido={received} totalAPagar={total} /></>}
+          {cambio > 0 && (
+            <>
+              <div className="wf-divider" />
+              <CambioSugerencias dineroRecibido={received} totalAPagar={total} />
+            </>
+          )}
         </div>
       )}
 
-      <button className="wf-btn primary" style={{ width: "100%" }} onClick={handleFinalizar}>
-        Cobrar y cerrar
+      <button className="wf-btn primary" style={{ width: '100%' }} onClick={handleFinalizarClick}>
+        {hayPendientes ? `Cobrar (${pendientes.length} pendiente(s))` : 'Cobrar y cerrar'}
       </button>
       <div className="row" style={{ gap: 8 }}>
         <button className="wf-btn ghost grow" onClick={() => navigate(`/mesa/${mesaId}/agregar`, { state: { pedido } })}>
@@ -230,13 +349,13 @@ function ComandaVista({ pedido, mesaId, navigate, total, received, cambio, diner
 /* ── Dividir cuenta ── */
 function DividirCuenta({ pedido, onFinalizar }) {
   const [personas, setPersonas] = useState(2);
-  // asignaciones[ppId][personaIdx] = cantidad asignada (int)
   const [asignaciones, setAsignaciones] = useState({});
-  // dinero recibido por persona
   const [pagos, setPagos] = useState({});
 
-  // Build expanded units: for a pp with cantidad=2, show 2 rows
-  const unidades = pedido.productos_pedidos.flatMap(pp => {
+  const pendientes = pedido.productos_pedidos.filter((pp) => !pp.listo_cocina);
+  const hayPendientes = pendientes.length > 0;
+
+  const unidades = pedido.productos_pedidos.flatMap((pp) => {
     const precioPorUnidad = parseFloat(pp.subtotal) / pp.cantidad;
     return Array.from({ length: pp.cantidad }, (_, i) => ({
       uid: `${pp.id}_${i}`,
@@ -248,27 +367,24 @@ function DividirCuenta({ pedido, onFinalizar }) {
     }));
   });
 
-  const getAsignado = (uid) => asignaciones[uid] ?? null; // null = sin asignar
+  const getAsignado = (uid) => asignaciones[uid] ?? null;
 
   const asignar = (uid, personaIdx) => {
-    setAsignaciones(prev => {
+    setAsignaciones((prev) => {
       const next = { ...prev };
-      next[uid] = prev[uid] === personaIdx ? null : personaIdx; // toggle
+      next[uid] = prev[uid] === personaIdx ? null : personaIdx;
       return next;
     });
   };
 
   const totalPersona = (idx) =>
-    unidades
-      .filter(u => asignaciones[u.uid] === idx)
+    unidades.filter((u) => asignaciones[u.uid] === idx)
       .reduce((s, u) => s + u.precio, 0);
 
-  const sinAsignar = unidades.filter(u => asignaciones[u.uid] == null);
-
+  const sinAsignar = unidades.filter((u) => asignaciones[u.uid] == null);
   const totalAsignado = unidades
-    .filter(u => asignaciones[u.uid] != null)
+    .filter((u) => asignaciones[u.uid] != null)
     .reduce((s, u) => s + u.precio, 0);
-
   const totalGeneral = parseFloat(pedido.factura?.total || 0);
 
   const cambioPersona = (idx) => {
@@ -276,66 +392,58 @@ function DividirCuenta({ pedido, onFinalizar }) {
     return Math.max(0, pagado - totalPersona(idx));
   };
 
-  const quickFor = (total) => {
-    const amounts = [
-      Math.ceil(total / 100) * 100,
-      Math.ceil(total / 100) * 100 + 100,
-      Math.ceil(total / 500) * 500,
-    ].filter((v, i, a) => v >= total && a.indexOf(v) === i).slice(0, 2);
-    return amounts;
-  };
-
-  const PERSONA_COLORS = ["var(--sj-green)", "var(--sj-gold-d)", "var(--sj-red)", "oklch(0.52 0.16 270)", "oklch(0.55 0.14 200)"];
+  const quickFor = (total) => [
+    Math.ceil(total / 100) * 100,
+    Math.ceil(total / 100) * 100 + 100,
+    Math.ceil(total / 500) * 500,
+  ].filter((v, i, a) => v >= total && a.indexOf(v) === i).slice(0, 2);
 
   return (
     <>
-      {/* Personas selector */}
       <div className="wf-box" style={{ padding: 12 }}>
         <div className="between">
           <span className="wf-h3">Número de personas</span>
           <div className="stepper">
-            <button className="minus" onClick={() => setPersonas(p => Math.max(2, p - 1))}>−</button>
+            <button className="minus" onClick={() => setPersonas((p) => Math.max(2, p - 1))}>−</button>
             <span className="val">{personas}</span>
-            <button className="plus" onClick={() => setPersonas(p => Math.min(8, p + 1))}>+</button>
+            <button className="plus" onClick={() => setPersonas((p) => Math.min(8, p + 1))}>+</button>
           </div>
         </div>
       </div>
 
-      {/* Persona legend */}
-      <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         {Array.from({ length: personas }, (_, i) => (
           <div key={i} className="row" style={{ gap: 4 }}>
-            <div style={{ width: 14, height: 14, borderRadius: "50%", background: PERSONA_COLORS[i % PERSONA_COLORS.length] }} />
+            <div style={{ width: 14, height: 14, borderRadius: '50%', background: PERSONA_COLORS[i % PERSONA_COLORS.length] }} />
             <span className="wf-sm">P{i + 1}</span>
           </div>
         ))}
       </div>
 
-      {/* Unit assignment */}
       <div className="wf-sm" style={{ marginBottom: 4 }}>
         Toca una persona para asignar cada unidad. Productos con cantidad &gt;1 se dividen individualmente:
       </div>
 
-      {pedido.productos_pedidos.map(pp => {
-        const ppUnidades = unidades.filter(u => u.ppId === pp.id);
+      {pedido.productos_pedidos.map((pp) => {
+        const ppUnidades = unidades.filter((u) => u.ppId === pp.id);
         return (
-          <div key={pp.id} className="wf-box" style={{ padding: "10px 12px" }}>
+          <div key={pp.id} className="wf-box" style={{ padding: '10px 12px' }}>
             <div className="between" style={{ marginBottom: 8 }}>
               <span className="wf-h3" style={{ fontSize: 17 }}>{pp.producto_nombre}</span>
-              <span className="wf-sm">${(parseFloat(pp.subtotal) / pp.cantidad).toFixed(2)} c/u</span>
+              <span className="wf-sm">{fmtMoney(parseFloat(pp.subtotal) / pp.cantidad)} c/u</span>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {ppUnidades.map(u => {
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {ppUnidades.map((u) => {
                 const asignadoA = getAsignado(u.uid);
                 return (
                   <div key={u.uid} className="between" style={{
-                    padding: "4px 8px",
+                    padding: '4px 8px',
                     borderRadius: 8,
-                    background: asignadoA != null ? `${PERSONA_COLORS[asignadoA % PERSONA_COLORS.length]}22` : "var(--sj-cream-2)",
-                    border: `1.5px solid ${asignadoA != null ? PERSONA_COLORS[asignadoA % PERSONA_COLORS.length] : "var(--sj-line)"}`,
+                    background: asignadoA != null ? `${PERSONA_COLORS[asignadoA % PERSONA_COLORS.length]}22` : 'var(--sj-cream-2)',
+                    border: `1.5px solid ${asignadoA != null ? PERSONA_COLORS[asignadoA % PERSONA_COLORS.length] : 'var(--sj-line)'}`,
                   }}>
                     <span className="wf-sm">
-                      unidad {u.unidadNum}/{u.totalUnidades} — ${u.precio.toFixed(2)}
+                      unidad {u.unidadNum}/{u.totalUnidades} — {fmtMoney(u.precio)}
                     </span>
                     <div className="row" style={{ gap: 4 }}>
                       {Array.from({ length: personas }, (_, i) => (
@@ -344,10 +452,10 @@ function DividirCuenta({ pedido, onFinalizar }) {
                           onClick={() => asignar(u.uid, i)}
                           className="wf-btn sm"
                           style={{
-                            padding: "2px 8px",
+                            padding: '2px 8px',
                             fontSize: 14,
-                            background: asignadoA === i ? PERSONA_COLORS[i % PERSONA_COLORS.length] : "var(--sj-paper)",
-                            color: asignadoA === i ? "white" : "var(--sj-ink)",
+                            background: asignadoA === i ? PERSONA_COLORS[i % PERSONA_COLORS.length] : 'var(--sj-paper)',
+                            color: asignadoA === i ? 'white' : 'var(--sj-ink)',
                             borderColor: PERSONA_COLORS[i % PERSONA_COLORS.length],
                           }}
                         >
@@ -364,14 +472,13 @@ function DividirCuenta({ pedido, onFinalizar }) {
       })}
 
       {sinAsignar.length > 0 && (
-        <div className="wf-chip red" style={{ padding: "6px 12px", fontSize: 15 }}>
+        <div className="wf-chip red" style={{ padding: '6px 12px', fontSize: 15 }}>
           ⚠️ {sinAsignar.length} unidad(es) sin asignar
         </div>
       )}
 
-      {/* Per-person payment + cambio */}
       <div className="wf-h3" style={{ marginTop: 4, marginBottom: 8 }}>Pago por persona</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {Array.from({ length: personas }, (_, i) => {
           const subtotal = totalPersona(i);
           const pagado = parseFloat(pagos[i]) || 0;
@@ -381,32 +488,35 @@ function DividirCuenta({ pedido, onFinalizar }) {
             <div key={i} className="wf-box bold" style={{ padding: 12, borderColor: color }}>
               <div className="between" style={{ marginBottom: 8 }}>
                 <div className="row" style={{ gap: 6 }}>
-                  <div style={{ width: 12, height: 12, borderRadius: "50%", background: color }} />
+                  <div style={{ width: 12, height: 12, borderRadius: '50%', background: color }} />
                   <span className="wf-h3">Persona {i + 1}</span>
                 </div>
-                <span className="wf-h2" style={{ color: "var(--sj-green-d)" }}>${subtotal.toFixed(2)}</span>
+                <span className="wf-h2" style={{ color: 'var(--sj-green-d)' }}>{fmtMoney(subtotal)}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input
                   type="number"
                   placeholder="Dinero recibido"
-                  value={pagos[i] || ""}
-                  onChange={e => setPagos(prev => ({ ...prev, [i]: e.target.value }))}
-                  style={{ flex: 1, border: `1.5px solid ${color}`, borderRadius: 10, padding: "6px 10px", fontFamily: "'Caveat',cursive", fontSize: 22, fontWeight: 700, background: "transparent", outline: "none" }}
+                  value={pagos[i] || ''}
+                  onChange={(e) => setPagos((prev) => ({ ...prev, [i]: e.target.value }))}
+                  style={{
+                    flex: 1, border: `1.5px solid ${color}`, borderRadius: 10,
+                    padding: '6px 10px', fontFamily: "'Caveat',cursive", fontSize: 22,
+                    fontWeight: 700, background: 'transparent', outline: 'none',
+                  }}
                 />
                 <span className="wf-sm">recibido</span>
               </div>
-              {/* Quick amounts */}
-              <div className="row" style={{ gap: 5, marginTop: 6, flexWrap: "wrap" }}>
-                {quickFor(subtotal).map(a => (
-                  <span key={a} className="wf-chip" style={{ cursor: "pointer", fontSize: 14 }} onClick={() => setPagos(prev => ({ ...prev, [i]: String(a) }))}>${a}</span>
+              <div className="row" style={{ gap: 5, marginTop: 6, flexWrap: 'wrap' }}>
+                {quickFor(subtotal).map((a) => (
+                  <span key={a} className="wf-chip" style={{ cursor: 'pointer', fontSize: 14 }} onClick={() => setPagos((prev) => ({ ...prev, [i]: String(a) }))}>{fmtMoney(a)}</span>
                 ))}
-                <span className="wf-chip gold" style={{ cursor: "pointer", fontSize: 14 }} onClick={() => setPagos(prev => ({ ...prev, [i]: String(Math.ceil(subtotal)) }))}>exacto</span>
+                <span className="wf-chip gold" style={{ cursor: 'pointer', fontSize: 14 }} onClick={() => setPagos((prev) => ({ ...prev, [i]: String(Math.ceil(subtotal)) }))}>exacto</span>
               </div>
               {pagado > 0 && (
-                <div className="between" style={{ marginTop: 8, padding: "6px 10px", borderRadius: 8, background: "oklch(0.97 0.04 85)", border: "1px dashed var(--sj-gold-d)" }}>
+                <div className="between" style={{ marginTop: 8, padding: '6px 10px', borderRadius: 8, background: 'oklch(0.97 0.04 85)', border: '1px dashed var(--sj-gold-d)' }}>
                   <span className="wf-sm">Cambio P{i + 1}</span>
-                  <span className="wf-h3" style={{ color: "var(--sj-gold-d)" }}>${cambio.toFixed(2)}</span>
+                  <span className="wf-h3" style={{ color: 'var(--sj-gold-d)' }}>{fmtMoney(cambio)}</span>
                 </div>
               )}
             </div>
@@ -414,23 +524,33 @@ function DividirCuenta({ pedido, onFinalizar }) {
         })}
       </div>
 
-      {/* Summary */}
-      <div className="wf-box bold" style={{ padding: 12, background: "var(--sj-green-l)", borderColor: "var(--sj-green-d)" }}>
+      <div className="wf-box bold" style={{ padding: 12, background: 'var(--sj-green-l)', borderColor: 'var(--sj-green-d)' }}>
         <div className="between">
           <span className="wf-h3">Asignado / Total</span>
-          <span className="wf-h2" style={{ color: "var(--sj-green-d)" }}>
-            ${totalAsignado.toFixed(2)} / ${totalGeneral.toFixed(2)}
+          <span className="wf-h2" style={{ color: 'var(--sj-green-d)' }}>
+            {fmtMoney(totalAsignado)} / {fmtMoney(totalGeneral)}
           </span>
         </div>
       </div>
 
+      {hayPendientes && (
+        <div className="wf-chip red" style={{ padding: '6px 12px', fontSize: 15, marginTop: 8 }}>
+          ⏳ {pendientes.length} producto(s) pendiente(s) en cocina
+        </div>
+      )}
+
       <button
         className="wf-btn primary"
-        style={{ width: "100%" }}
+        style={{ width: '100%' }}
         disabled={sinAsignar.length > 0}
-        onClick={onFinalizar}
+        onClick={() => {
+          if (hayPendientes && !window.confirm(`⚠️ Hay ${pendientes.length} producto(s) pendientes en cocina.\n\n¿Finalizar igual?`)) return;
+          onFinalizar();
+        }}
       >
-        {sinAsignar.length > 0 ? `Asigna ${sinAsignar.length} unidad(es) pendiente(s)` : "Cobrar y cerrar"}
+        {sinAsignar.length > 0
+          ? `Asigna ${sinAsignar.length} unidad(es) pendiente(s)`
+          : 'Cobrar y cerrar'}
       </button>
     </>
   );

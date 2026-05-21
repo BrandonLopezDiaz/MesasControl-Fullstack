@@ -1,58 +1,71 @@
-from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
+
 from filters.mixins import FiltersMixin
 from .filters import PedidoFilter
-from .models import Pedido, ProductoPedido, Factura, CierreDia, MovimientoCaja
+from .models import CierreDia, Factura, MovimientoCaja, Pedido, ProductoPedido
 from .serializers import (
-    PedidoSerializer, ProductoPedidoSerializer,
-    PedidoDetailSerializer, FacturaSerializer,
-    CierreDiaSerializer, MovimientoCajaSerializer,
+    CierreDiaSerializer,
+    FacturaSerializer,
+    MovimientoCajaSerializer,
+    PedidoDetailSerializer,
+    PedidoSerializer,
+    ProductoPedidoSerializer,
 )
 
 
 class PedidoViewSet(ModelViewSet):
+    """CRUD básico de pedidos (sin productos anidados)."""
     queryset = Pedido.objects.all()
     serializer_class = PedidoSerializer
     http_method_names = ['get', 'post', 'put', 'delete']
 
 
 class ProductoPedidoViewSet(ModelViewSet):
-    queryset = ProductoPedido.objects.all()
+    """CRUD de productos dentro de pedidos. Usado por cocina para marcar listo_cocina."""
+    queryset = ProductoPedido.objects.select_related('producto', 'pedido').all()
     serializer_class = ProductoPedidoSerializer
     http_method_names = ['get', 'post', 'put', 'patch', 'delete']
 
 
 class FacturaViewSet(ModelViewSet):
-    queryset = Factura.objects.all()
+    """CRUD de facturas (solo lectura recomendada)."""
+    queryset = Factura.objects.select_related('pedido').all()
     serializer_class = FacturaSerializer
     http_method_names = ['get', 'post', 'put', 'delete']
 
 
 class PedidoDetailViewSet(PedidoFilter, FiltersMixin, ModelViewSet):
+    """Pedidos con productos anidados. Endpoint principal del frontend."""
     serializer_class = PedidoDetailSerializer
-    queryset = Pedido.objects.all()
+    queryset = Pedido.objects.prefetch_related(
+        'productos_pedidos',
+        'productos_pedidos__producto',
+    ).select_related('factura').all()
     model = Pedido
 
     def get_queryset(self):
-        queryset = super().get_queryset().order_by('-id')
-        queryset = self.filter_queryset(queryset)
+        qs = super().get_queryset().order_by('-id')
+        qs = self.filter_queryset(qs)
         mesa = self.request.query_params.get('mesa')
         tipo = self.request.query_params.get('tipo')
-        # For mesa queries (not extras), return only the latest active pedido
+        # Para queries de mesa (no extras), solo devolver la última orden activa
         if mesa and not tipo:
-            return queryset.filter(id__in=queryset.values_list('id', flat=True)[:1])
-        return queryset
+            latest = qs.values_list('id', flat=True).first()
+            return qs.filter(id=latest) if latest else qs.none()
+        return qs
 
 
 class CierreDiaViewSet(ModelViewSet):
-    queryset = CierreDia.objects.all().order_by('-fecha')
+    """CRUD de cierres de día (con movimientos anidados)."""
+    queryset = CierreDia.objects.prefetch_related('movimientos').all().order_by('-fecha')
     serializer_class = CierreDiaSerializer
     http_method_names = ['get', 'post', 'put', 'delete']
 
 
 class MovimientoCajaViewSet(ModelViewSet):
-    queryset = MovimientoCaja.objects.all()
+    """CRUD de movimientos de caja individuales."""
+    queryset = MovimientoCaja.objects.select_related('cierre').all()
     serializer_class = MovimientoCajaSerializer
     http_method_names = ['get', 'post', 'put', 'delete']
-

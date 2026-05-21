@@ -7,12 +7,14 @@ import ComandaCliente from "./pages/ComandaCliente";
 import Cocina from "./pages/Cocina";
 import Finanzas from "./pages/Finanzas";
 import Catalogo from "./pages/Catalogo";
+import ConfigPage from "./pages/ConfigPage";
 
 const NAV_ITEMS = [
   { path: "/", label: "Mesas", emoji: "🪑" },
   { path: "/cocina", label: "Cocina", emoji: "🍳" },
   { path: "/finanzas", label: "Finanzas", emoji: "📊" },
-  { path: "/catalogo", label: "Catálogos", emoji: "⚙️" },
+  { path: "/config", label: "Ajustes", emoji: "⚙️" },
+  { path: "/catalogo", label: "Catálogos", emoji: "📦" },
 ];
 
 function NavBar() {
@@ -65,6 +67,7 @@ function App() {
             <Route path="/mesa/:mesaId/comandaCliente" element={<ComandaCliente />} />
             <Route path="/cocina" element={<Cocina />} />
             <Route path="/finanzas" element={<Finanzas />} />
+            <Route path="/config" element={<ConfigPage />} />
             <Route path="/catalogo" element={<Catalogo />} />
           </Routes>
           <NavBar />

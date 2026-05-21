@@ -431,6 +431,7 @@ body {
   border: 1.5px solid var(--sj-line);
   border-radius: 999px;
   background: var(--sj-paper);
+  color: var(--sj-ink);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -457,7 +458,7 @@ body {
   justify-content: space-between;
   margin-bottom: 10px;
 }
-.date-cal__month { font-family: 'Caveat', cursive; font-size: 20px; font-weight: 700; }
+.date-cal__month { font-family: 'Caveat', cursive; font-size: 20px; font-weight: 700; color: var(--sj-ink); }
 .date-cal__nav {
   background: var(--sj-cream-2);
   border: 1.5px solid var(--sj-line);
@@ -465,6 +466,7 @@ body {
   width: 28px; height: 28px;
   cursor: pointer;
   font-size: 14px;
+  color: var(--sj-ink);
   display: flex; align-items: center; justify-content: center;
 }
 .date-cal__grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
@@ -477,6 +479,7 @@ body {
   cursor: pointer;
   border: none;
   background: transparent;
+  color: var(--sj-ink);
 }
 .date-cal__cell:hover { background: var(--sj-cream-2); }
 .date-cal__cell.today { font-weight: 700; color: var(--sj-green-d); }
