@@ -437,12 +437,6 @@ const FEATURE_CONFIGS = {
   feature_rapido: { label: '⚡ Mostrar Pedido rápido', desc: 'Permite crear pedidos rápidos desde la pantalla principal' },
 };
 
-const FEATURE_CONFIGS = {
-  feature_barra: { label: '🍺 Mostrar tipo Barra', desc: 'Permite crear pedidos de barra desde la pantalla principal' },
-  feature_para_llevar: { label: '🛍️ Mostrar Para llevar', desc: 'Permite crear pedidos para llevar desde la pantalla principal' },
-  feature_rapido: { label: '⚡ Mostrar Pedido rápido', desc: 'Permite crear pedidos rápidos desde la pantalla principal' },
-};
-
 function ConfiguracionesPanel({ configs, onSave, openNewC, openEditC, delC }) {
   const knownKeys = Object.keys(KNOWN_CONFIGS);
   const featureKeys = Object.keys(FEATURE_CONFIGS);
