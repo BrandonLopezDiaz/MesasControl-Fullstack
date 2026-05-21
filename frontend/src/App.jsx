@@ -1,6 +1,7 @@
 // src/App.jsx
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { ModalProvider } from "./components/ConfirmModal";
 import Mesas from "./pages/Mesas";
 import AgregarProductos from "./pages/AgregarProducto";
 import ComandaCliente from "./pages/ComandaCliente";
@@ -57,7 +58,8 @@ function NavBar() {
 function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
+      <ModalProvider>
+        <BrowserRouter>
         <div style={{ paddingBottom: 64 }}>
           <Routes>
             <Route path="/" element={<Mesas />} />
@@ -69,8 +71,9 @@ function App() {
           </Routes>
           <NavBar />
         </div>
-      </BrowserRouter>
-    </ThemeProvider>
+        </BrowserRouter>
+        </ModalProvider>
+      </ThemeProvider>
   );
 }
 

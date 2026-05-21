@@ -3,7 +3,8 @@ import {
   fetchProductos, createProducto, updateProducto, deleteProducto,
   fetchConfiguraciones, createConfiguracion, updateConfiguracion, deleteConfiguracion,
 } from '../api/ListaProductos';
-import { useTheme, TEMAS, CUSTOM_COLOR_KEYS } from '../components/ThemeProvider';
+import { useTheme, TEMAS, CUSTOM_COLOR_KEYS, COLOR_PRESETS } from '../components/ThemeProvider';
+import { useModal } from '../components/ConfirmModal';
 import { fmtMoney } from '../utils/format';
 
 const SECCION_OPTS = [
@@ -27,8 +28,11 @@ export default function Catalogo() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const { theme, setTheme, customColors, setCustomColors } = useTheme();
+  const { show } = useModal();
 
   useEffect(() => { loadProductos(); loadConfigs(); }, []);
+
+  useEffect(() => { window.scrollTo(0, 0); }, [seccion]);
 
   const loadProductos = async () => setProductos(await fetchProductos().catch(() => []));
   const loadConfigs = async () => setConfigs(await fetchConfiguraciones().catch(() => []));
@@ -63,7 +67,8 @@ export default function Catalogo() {
   };
 
   const delP = async (p) => {
-    if (!window.confirm(`¿Eliminar "${p.nombre}"?`)) return;
+    const ok = await show({ title: 'Eliminar producto', message: `¿Eliminar "${p.nombre}"?`, variant: 'danger', confirmText: 'Eliminar' });
+    if (!ok) return;
     await deleteProducto(p.id);
     loadProductos();
   };
@@ -104,7 +109,8 @@ export default function Catalogo() {
   };
 
   const delC = async (c) => {
-    if (!window.confirm(`¿Eliminar config "${c.clave}"?`)) return;
+    const ok = await show({ title: 'Eliminar configuración', message: `¿Eliminar config "${c.clave}"?`, variant: 'danger', confirmText: 'Eliminar' });
+    if (!ok) return;
     await deleteConfiguracion(c.id);
     loadConfigs();
   };
@@ -261,37 +267,74 @@ export default function Catalogo() {
             {/* ── Personalizar colores (solo en modo custom) ── */}
             {theme === 'custom' && (
               <>
-                <div className="wf-h3" style={{ marginTop: 20, marginBottom: 8 }}>Personalizar colores</div>
-                <div className="wf-sm" style={{ marginBottom: 12 }}>
-                  Elegí colores en formato oklch() o cualquier valor CSS válido.
+                <div className="wf-h3" style={{ marginTop: 20, marginBottom: 4 }}>Paletas rápidas</div>
+                <div className="wf-sm" style={{ marginBottom: 10 }}>
+                  Elegí una paleta predefinida o personalizá cada color abajo.
+                </div>
+                <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+                  {COLOR_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      className="wf-box bold"
+                      style={{ padding: '10px 14px', cursor: 'pointer', flex: '1 1 100px', textAlign: 'center' }}
+                      onClick={() => setCustomColors(preset.colors)}
+                    >
+                      <div className="row" style={{ gap: 4, justifyContent: 'center', marginBottom: 4 }}>
+                        {['--sj-green', '--sj-gold', '--sj-red'].map((k) => (
+                          <div key={k} style={{ width: 20, height: 20, borderRadius: '50%', background: preset.colors[k] }} />
+                        ))}
+                      </div>
+                      <div className="wf-sm">{preset.name}</div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="wf-h3" style={{ marginBottom: 4 }}>Personalizar cada color</div>
+                <div className="wf-sm" style={{ marginBottom: 10 }}>
+                  Tocá cada muestra para abrir el selector de color.
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {CUSTOM_COLOR_KEYS.map(({ key, label, fallback }) => (
-                    <div key={key} className="wf-box" style={{ padding: '10px 14px' }}>
-                      <div className="between" style={{ marginBottom: 6 }}>
-                        <div className="wf-h3" style={{ fontSize: 14 }}>{label}</div>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <div style={{
-                            width: 28, height: 28, borderRadius: 6,
-                            background: customColors[key] || `var(${key})`,
-                            border: '1.5px solid var(--sj-line)',
-                          }} />
-                          <span className="wf-chip" style={{ fontSize: 12, cursor: 'pointer' }} onClick={() => {
-                            const newColors = { ...customColors };
-                            delete newColors[key];
-                            setCustomColors(newColors);
-                          }}>↺</span>
+                  {CUSTOM_COLOR_KEYS.map(({ key, label, fallback }) => {
+                    const colorVal = customColors[key] || fallback;
+                    return (
+                      <div key={key} className="wf-box" style={{ padding: '10px 14px' }}>
+                        <div className="between" style={{ marginBottom: 6 }}>
+                          <div className="wf-h3" style={{ fontSize: 14 }}>{label}</div>
+                          <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                            <span className="wf-sm">{colorVal}</span>
+                            <div style={{ position: 'relative', width: 36, height: 36 }}>
+                              <input
+                                type="color"
+                                value={colorVal}
+                                onChange={(e) => setCustomColors({ ...customColors, [key]: e.target.value })}
+                                style={{
+                                  position: 'absolute', inset: 0, width: '100%', height: '100%',
+                                  padding: 0, border: '2px solid var(--sj-line)', borderRadius: 8,
+                                  cursor: 'pointer', background: 'none',
+                                }}
+                              />
+                            </div>
+                            {customColors[key] && (
+                              <span
+                                className="wf-chip"
+                                style={{ fontSize: 12, cursor: 'pointer' }}
+                                onClick={() => {
+                                  const newColors = { ...customColors };
+                                  delete newColors[key];
+                                  setCustomColors(newColors);
+                                }}
+                              >↺ reset</span>
+                            )}
+                          </div>
                         </div>
+                        <div style={{
+                          width: '100%', height: 24, borderRadius: 8,
+                          background: colorVal,
+                          border: '1px solid var(--sj-line)',
+                        }} />
                       </div>
-                      <input
-                        className="wf-input"
-                        value={customColors[key] || `var(${key})`}
-                        placeholder={fallback}
-                        onChange={(e) => setCustomColors({ ...customColors, [key]: e.target.value })}
-                        style={{ width: '100%', fontFamily: 'monospace', fontSize: 14 }}
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

@@ -4,6 +4,7 @@ import { fetchPedidoDetail, updatePedido } from '../api/ListaProductos';
 import { ESTATUS } from '../utils/constants';
 import { fmtMoney, fmtTotal } from '../utils/format';
 import CambioSugerencias from './CambioSugerencias';
+import { useModal } from '../components/ConfirmModal';
 
 const PERSONA_COLORS = [
   'var(--sj-green)', 'var(--sj-gold-d)', 'var(--sj-red)',
@@ -19,6 +20,7 @@ export default function ComandaCliente() {
   const [dineroRecibido, setDineroRecibido] = useState('');
   const [vista, setVista] = useState('comanda');
   const [saving, setSaving] = useState(false);
+  const { show } = useModal();
 
   useEffect(() => {
     if (pedido) return;
@@ -60,35 +62,38 @@ export default function ComandaCliente() {
     buildPayloadFromItems(pedido.productos_pedidos, estatus);
 
   const handleFinalizar = async () => {
-    if (!window.confirm('¿Finalizar y cobrar este pedido?')) return;
+    const ok = await show({ title: 'Finalizar pedido', message: '¿Finalizar y cobrar este pedido?', variant: 'confirm', confirmText: 'Finalizar' });
+    if (!ok) return;
     try {
       await updatePedido(pedido.id, buildPayloadBase(ESTATUS.FINALIZADO));
       navigate('/');
     } catch {
-      alert('Error al finalizar. Intenta de nuevo.');
+      show({ title: 'Error', message: 'Error al finalizar. Intenta de nuevo.', variant: 'alert' });
     }
   };
 
   const handleCancelar = async () => {
-    if (!window.confirm('¿Cancelar este pedido? Esta acción no se puede deshacer.')) return;
+    const ok = await show({ title: 'Cancelar pedido', message: '¿Cancelar este pedido? Esta acción no se puede deshacer.', variant: 'danger', confirmText: 'Cancelar' });
+    if (!ok) return;
     try {
       await updatePedido(pedido.id, buildPayloadBase(ESTATUS.CANCELADO));
       navigate('/');
     } catch {
-      alert('Error al cancelar. Intenta de nuevo.');
+      show({ title: 'Error', message: 'Error al cancelar. Intenta de nuevo.', variant: 'alert' });
     }
   };
 
   const handleRemoveProduct = async (producto) => {
     const nombre = producto.producto_nombre;
-    if (!window.confirm(`¿Eliminar "${nombre}" de la comanda?`)) return;
+    const ok = await show({ title: 'Eliminar producto', message: `¿Eliminar "${nombre}" de la comanda?`, variant: 'danger', confirmText: 'Eliminar' });
+    if (!ok) return;
     setSaving(true);
     const items = pedido.productos_pedidos.filter((p) => p.producto !== producto.producto);
     try {
       const updated = await updatePedido(pedido.id, buildPayloadFromItems(items));
       setPedido(updated);
     } catch {
-      alert('Error al eliminar producto.');
+      show({ title: 'Error', message: 'Error al eliminar producto.', variant: 'alert' });
     } finally {
       setSaving(false);
     }
@@ -111,7 +116,7 @@ export default function ComandaCliente() {
       const updated = await updatePedido(pedido.id, buildPayloadFromItems(items));
       setPedido(updated);
     } catch {
-      alert('Error al cambiar cantidad.');
+      show({ title: 'Error', message: 'Error al cambiar cantidad.', variant: 'alert' });
     } finally {
       setSaving(false);
     }
@@ -171,6 +176,7 @@ export default function ComandaCliente() {
           onRemoveProduct={handleRemoveProduct}
           onChangeQuantity={handleChangeQuantity}
           saving={saving}
+          show={show}
         />
       )}
 
@@ -189,7 +195,7 @@ function ComandaVista({
   pedido, mesaId, navigate, total, received, cambio,
   dineroRecibido, setDineroRecibido, quickAmounts,
   handleFinalizar, handleCancelar,
-  onRemoveProduct, onChangeQuantity, saving,
+  onRemoveProduct, onChangeQuantity, saving, show,
 }) {
   const pendientes = pedido.productos_pedidos.filter((pp) => !pp.listo_cocina);
   const hayPendientes = pendientes.length > 0;
@@ -198,7 +204,8 @@ function ComandaVista({
     const msg = hayPendientes
       ? `⚠️ Hay ${pendientes.length} producto(s) pendientes en cocina.\n\n¿Finalizar igual?`
       : '¿Finalizar y cobrar este pedido?';
-    if (!window.confirm(msg)) return;
+    const ok = await show({ title: 'Finalizar pedido', message: msg, variant: hayPendientes ? 'warning' : 'confirm', confirmText: 'Finalizar' });
+    if (!ok) return;
     await handleFinalizar();
   };
 
@@ -543,8 +550,11 @@ function DividirCuenta({ pedido, onFinalizar }) {
         className="wf-btn primary"
         style={{ width: '100%' }}
         disabled={sinAsignar.length > 0}
-        onClick={() => {
-          if (hayPendientes && !window.confirm(`⚠️ Hay ${pendientes.length} producto(s) pendientes en cocina.\n\n¿Finalizar igual?`)) return;
+        onClick={async () => {
+          if (hayPendientes) {
+            const ok = await show({ title: 'Finalizar pedido', message: `⚠️ Hay ${pendientes.length} producto(s) pendientes en cocina.\n\n¿Finalizar igual?`, variant: 'warning', confirmText: 'Finalizar' });
+            if (!ok) return;
+          }
           onFinalizar();
         }}
       >

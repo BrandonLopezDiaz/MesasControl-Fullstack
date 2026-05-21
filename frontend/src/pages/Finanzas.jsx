@@ -6,6 +6,7 @@ import {
 import { ESTATUS } from '../utils/constants';
 import { fmtMoney, toLocalDateStr, sumBy } from '../utils/format';
 import DatePicker from '../components/DatePicker';
+import { useModal } from '../components/ConfirmModal';
 
 const VISTAS = [
   { id: 'ventas', label: '📊 Ventas' },
@@ -44,6 +45,7 @@ function Ventas() {
   const [hasta, setHasta] = useState(today);
   const [detalle, setDetalle] = useState(null);
   const [loading, setLoading] = useState(false);
+  const { show } = useModal();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,15 +145,16 @@ function Ventas() {
     };
     try {
       await postPedido(payload);
-      alert('Comanda duplicada.');
+      show({ title: 'Comanda duplicada', message: 'Comanda duplicada correctamente.', variant: 'alert' });
       load();
     } catch (e) {
-      alert('Error al duplicar: ' + (e.response?.data?.mesa?.[0] || e.message));
+      show({ title: 'Error', message: 'Error al duplicar: ' + (e.response?.data?.mesa?.[0] || e.message), variant: 'alert' });
     }
   };
 
   const handleEliminar = async (pedido) => {
-    if (!window.confirm('¿Eliminar esta comanda?')) return;
+    const ok = await show({ title: 'Eliminar comanda', message: '¿Eliminar esta comanda?', variant: 'danger', confirmText: 'Eliminar' });
+    if (!ok) return;
     await deletePedido(pedido.id);
     load();
   };

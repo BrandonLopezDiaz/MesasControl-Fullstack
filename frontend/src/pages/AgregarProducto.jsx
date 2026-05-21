@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { fetchProductos, postPedido, updatePedido, fetchConfiguraciones } from '../api/ListaProductos';
 import { ESTATUS, TIPO_LABELS } from '../utils/constants';
 import { fmtMoney } from '../utils/format';
+import { useModal } from '../components/ConfirmModal';
 
 export default function AgregarProductos() {
   const { mesaId } = useParams();
@@ -18,6 +19,7 @@ export default function AgregarProductos() {
   const [paraLlevar, setParaLlevar] = useState(initialPedido?.para_llevar || false);
   const [costoLlevar, setCostoLlevar] = useState(0);
   const [categoriaActiva, setCategoriaActiva] = useState('Todos');
+  const { show } = useModal();
 
   useEffect(() => {
     (async () => {
@@ -106,7 +108,7 @@ export default function AgregarProductos() {
         : await postPedido(payload);
       navigate(`/mesa/${mesaId}/comandaCliente`, { state: { pedido: result } });
     } catch (e) {
-      alert('Error al enviar el pedido: ' + (e.response?.data?.mesa?.[0] || 'intenta de nuevo.'));
+      show({ title: 'Error', message: 'Error al enviar el pedido: ' + (e.response?.data?.mesa?.[0] || 'intenta de nuevo.'), variant: 'alert' });
     } finally {
       setEnviando(false);
     }

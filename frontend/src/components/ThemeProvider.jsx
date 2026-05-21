@@ -14,14 +14,38 @@ export const TEMAS = [
 const CUSTOM_STORAGE_KEY = "milocal_custom_theme";
 
 export const CUSTOM_COLOR_KEYS = [
-  { key: "--sj-green",   label: "Principal", fallback: "oklch(0.55 0.13 155)" },
-  { key: "--sj-green-d", label: "Oscuro",    fallback: "oklch(0.42 0.12 155)" },
-  { key: "--sj-green-l", label: "Claro",     fallback: "oklch(0.92 0.05 155)" },
-  { key: "--sj-gold",    label: "Dorado",    fallback: "oklch(0.78 0.13 85)" },
-  { key: "--sj-gold-d",  label: "Dorado oscuro", fallback: "oklch(0.62 0.13 80)" },
-  { key: "--sj-red",     label: "Rojo",      fallback: "oklch(0.52 0.16 25)" },
-  { key: "--sj-ink",     label: "Texto",     fallback: "oklch(0.22 0.02 240)" },
-  { key: "--sj-paper",   label: "Fondo",     fallback: "oklch(0.98 0.008 90)" },
+  { key: "--sj-green",   label: "Principal",  fallback: "#68b36b" },
+  { key: "--sj-green-d", label: "Oscuro",     fallback: "#428c4b" },
+  { key: "--sj-green-l", label: "Claro",      fallback: "#e8f5e4" },
+  { key: "--sj-gold",    label: "Dorado",     fallback: "#e8b84b" },
+  { key: "--sj-gold-d",  label: "Dorado osc", fallback: "#c9943a" },
+  { key: "--sj-red",     label: "Rojo",       fallback: "#c44f4f" },
+  { key: "--sj-ink",     label: "Texto",      fallback: "#333333" },
+  { key: "--sj-paper",   label: "Fondo",      fallback: "#fafaf5" },
+];
+
+/* Paletas predefinidas para elegir rápido */
+export const COLOR_PRESETS = [
+  {
+    name: '🌮 Taquería',
+    colors: { '--sj-green': '#d9782b', '--sj-green-d': '#b85d1a', '--sj-green-l': '#fdf0e4', '--sj-gold': '#e8c84b', '--sj-gold-d': '#c9a83a', '--sj-red': '#c44f3a', '--sj-ink': '#2d1f14', '--sj-paper': '#fefaf5' },
+  },
+  {
+    name: '🍃 Naturaleza',
+    colors: { '--sj-green': '#4a8c5c', '--sj-green-d': '#2d6b3e', '--sj-green-l': '#e4f0e8', '--sj-gold': '#c4a84b', '--sj-gold-d': '#a0883a', '--sj-red': '#c45f4f', '--sj-ink': '#1a2d1f', '--sj-paper': '#f5faf5' },
+  },
+  {
+    name: '☕ Café',
+    colors: { '--sj-green': '#8b6b4a', '--sj-green-d': '#6b4f33', '--sj-green-l': '#f0e8dc', '--sj-gold': '#d4a85b', '--sj-gold-d': '#b88a44', '--sj-red': '#a85b4f', '--sj-ink': '#2d1f14', '--sj-paper': '#faf5ed' },
+  },
+  {
+    name: '🌊 Océano',
+    colors: { '--sj-green': '#3a8ba8', '--sj-green-d': '#2a6b88', '--sj-green-l': '#dcecf5', '--sj-gold': '#6ba8c4', '--sj-gold-d': '#4a8aa8', '--sj-red': '#c45f5f', '--sj-ink': '#142d33', '--sj-paper': '#f0f8fa' },
+  },
+  {
+    name: '🌅 Atardecer',
+    colors: { '--sj-green': '#d46b5b', '--sj-green-d': '#b84a3a', '--sj-green-l': '#fdf0ed', '--sj-gold': '#e8a84b', '--sj-gold-d': '#d48a33', '--sj-red': '#c43a3a', '--sj-ink': '#2d1414', '--sj-paper': '#fefaf5' },
+  },
 ];
 
 function loadCustomColors() {
