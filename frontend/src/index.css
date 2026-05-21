@@ -77,6 +77,8 @@
 
 * { box-sizing: border-box; }
 
+input, select, textarea, button { color: var(--sj-ink); }
+
 body {
   margin: 0;
   font-family: 'Patrick Hand', 'Kalam', cursive;

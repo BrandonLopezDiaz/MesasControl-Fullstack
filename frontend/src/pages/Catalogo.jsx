@@ -3,7 +3,7 @@ import {
   fetchProductos, createProducto, updateProducto, deleteProducto,
   fetchConfiguraciones, createConfiguracion, updateConfiguracion, deleteConfiguracion,
 } from '../api/ListaProductos';
-import { useTheme, TEMAS } from '../components/ThemeProvider';
+import { useTheme, TEMAS, CUSTOM_COLOR_KEYS } from '../components/ThemeProvider';
 import { fmtMoney } from '../utils/format';
 
 const SECCION_OPTS = [
@@ -26,7 +26,7 @@ export default function Catalogo() {
   const [formC, setFormC] = useState(EMPTY_CONFIG);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, customColors, setCustomColors } = useTheme();
 
   useEffect(() => { loadProductos(); loadConfigs(); }, []);
 
@@ -257,6 +257,44 @@ export default function Catalogo() {
                 </div>
               ))}
             </div>
+
+            {/* ── Personalizar colores (solo en modo custom) ── */}
+            {theme === 'custom' && (
+              <>
+                <div className="wf-h3" style={{ marginTop: 20, marginBottom: 8 }}>Personalizar colores</div>
+                <div className="wf-sm" style={{ marginBottom: 12 }}>
+                  Elegí colores en formato oklch() o cualquier valor CSS válido.
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {CUSTOM_COLOR_KEYS.map(({ key, label, fallback }) => (
+                    <div key={key} className="wf-box" style={{ padding: '10px 14px' }}>
+                      <div className="between" style={{ marginBottom: 6 }}>
+                        <div className="wf-h3" style={{ fontSize: 14 }}>{label}</div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <div style={{
+                            width: 28, height: 28, borderRadius: 6,
+                            background: customColors[key] || `var(${key})`,
+                            border: '1.5px solid var(--sj-line)',
+                          }} />
+                          <span className="wf-chip" style={{ fontSize: 12, cursor: 'pointer' }} onClick={() => {
+                            const newColors = { ...customColors };
+                            delete newColors[key];
+                            setCustomColors(newColors);
+                          }}>↺</span>
+                        </div>
+                      </div>
+                      <input
+                        className="wf-input"
+                        value={customColors[key] || `var(${key})`}
+                        placeholder={fallback}
+                        onChange={(e) => setCustomColors({ ...customColors, [key]: e.target.value })}
+                        style={{ width: '100%', fontFamily: 'monospace', fontSize: 14 }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </>
         )}
       </main>
@@ -371,6 +409,11 @@ export default function Catalogo() {
 
 /* ── Panel de configuraciones conocidas ── */
 const KNOWN_CONFIGS = {
+  nombre_local: {
+    label: '🏪 Nombre del local',
+    desc: 'Nombre que se muestra en la pantalla principal y pestaña del navegador',
+    type: 'text',
+  },
   tiempo_alerta_cocina: {
     label: '⏱️ Tiempo de alerta en cocina',
     desc: 'Minutos antes de que una comanda se marque como demorada',
@@ -381,12 +424,31 @@ const KNOWN_CONFIGS = {
     desc: 'Se agrega automáticamente cuando el pedido es para llevar',
     type: 'number', min: 0, max: 500, step: 5, unit: '$',
   },
+  propina_sugerida: {
+    label: '💵 Propina sugerida',
+    desc: 'Porcentaje de propina que se sugiere por defecto',
+    type: 'slider', min: 0, max: 30, step: 5, unit: '%',
+  },
+};
+
+const FEATURE_CONFIGS = {
+  feature_barra: { label: '🍺 Mostrar tipo Barra', desc: 'Permite crear pedidos de barra desde la pantalla principal' },
+  feature_para_llevar: { label: '🛍️ Mostrar Para llevar', desc: 'Permite crear pedidos para llevar desde la pantalla principal' },
+  feature_rapido: { label: '⚡ Mostrar Pedido rápido', desc: 'Permite crear pedidos rápidos desde la pantalla principal' },
+};
+
+const FEATURE_CONFIGS = {
+  feature_barra: { label: '🍺 Mostrar tipo Barra', desc: 'Permite crear pedidos de barra desde la pantalla principal' },
+  feature_para_llevar: { label: '🛍️ Mostrar Para llevar', desc: 'Permite crear pedidos para llevar desde la pantalla principal' },
+  feature_rapido: { label: '⚡ Mostrar Pedido rápido', desc: 'Permite crear pedidos rápidos desde la pantalla principal' },
 };
 
 function ConfiguracionesPanel({ configs, onSave, openNewC, openEditC, delC }) {
   const knownKeys = Object.keys(KNOWN_CONFIGS);
+  const featureKeys = Object.keys(FEATURE_CONFIGS);
   const knownConfigs = configs.filter((c) => knownKeys.includes(c.clave));
-  const otherConfigs = configs.filter((c) => !knownKeys.includes(c.clave));
+  const featureConfigs = configs.filter((c) => featureKeys.includes(c.clave));
+  const otherConfigs = configs.filter((c) => !knownKeys.includes(c.clave) && !featureKeys.includes(c.clave));
 
   return (
     <>
@@ -401,7 +463,7 @@ function ConfiguracionesPanel({ configs, onSave, openNewC, openEditC, delC }) {
           const cfg = knownConfigs.find((c) => c.clave === clave);
           if (!cfg) return null;
           const meta = KNOWN_CONFIGS[clave];
-          const val = parseFloat(cfg.valor) || 0;
+          const val = meta.type === 'text' ? cfg.valor : (parseFloat(cfg.valor) || 0);
 
           return (
             <div key={clave} className="wf-box bold" style={{ padding: 16 }}>
@@ -411,7 +473,7 @@ function ConfiguracionesPanel({ configs, onSave, openNewC, openEditC, delC }) {
                   <div className="wf-sm">{meta.desc}</div>
                 </div>
                 <div style={displayValueStyle}>
-                  {meta.unit === '$' ? fmtMoney(val) : `${val}${meta.unit}`}
+                  {meta.type === 'text' ? cfg.valor : (meta.unit === '$' ? fmtMoney(val) : `${val}${meta.unit}`)}
                 </div>
               </div>
 
@@ -431,7 +493,7 @@ function ConfiguracionesPanel({ configs, onSave, openNewC, openEditC, delC }) {
                     <span className="wf-sm">{meta.max}{meta.unit}</span>
                   </div>
                   <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                    {[5, 10, 15, 20, 30, 45].map((v) => (
+                    {meta.step >= 5 && [5, 10, 15, 20, 30, 45].filter((v) => v >= meta.min && v <= meta.max).map((v) => (
                       <span
                         key={v}
                         className="wf-chip"
@@ -473,9 +535,51 @@ function ConfiguracionesPanel({ configs, onSave, openNewC, openEditC, delC }) {
                     style={{ background: 'var(--sj-green-l)', color: 'var(--sj-green-d)' }}
                     onClick={() => onSave(cfg, Math.min(meta.max, val + meta.step))}
                   >+{meta.step}</button>
-                  <span className="wf-sm">{meta.unit} por prod</span>
+                  <span className="wf-sm">{meta.unit}</span>
                 </div>
               )}
+
+              {meta.type === 'text' && (
+                <input
+                  className="wf-input"
+                  value={cfg.valor}
+                  onChange={(e) => onSave(cfg, e.target.value)}
+                  style={{ width: '100%', fontFamily: "'Caveat',cursive", fontSize: 22, fontWeight: 700 }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Feature flags ── */}
+      <div className="wf-h3" style={{ marginTop: 20, marginBottom: 8 }}>Funcionalidades</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {featureKeys.map((clave) => {
+          const cfg = featureConfigs.find((c) => c.clave === clave);
+          if (!cfg) return null;
+          const meta = FEATURE_CONFIGS[clave];
+          const activo = cfg.valor === 'true';
+          return (
+            <div key={clave} className="wf-box" style={{ padding: '12px 14px' }}>
+              <div className="between">
+                <div>
+                  <div className="wf-h3">{meta.label}</div>
+                  <div className="wf-sm">{meta.desc}</div>
+                </div>
+                <label
+                  className="wf-chip"
+                  style={{
+                    cursor: 'pointer', fontSize: 14,
+                    background: activo ? 'var(--sj-green-l)' : 'var(--sj-cream-2)',
+                    borderColor: activo ? 'var(--sj-green-d)' : 'var(--sj-line)',
+                    color: activo ? 'var(--sj-green-d)' : 'var(--sj-ink-2)',
+                  }}
+                  onClick={() => onSave(cfg, activo ? 'false' : 'true')}
+                >
+                  {activo ? '✓ activo' : '✕ inactivo'}
+                </label>
+              </div>
             </div>
           );
         })}
