@@ -35,9 +35,6 @@ export default function AgregarProductos() {
       if (cfgLlevar) setCostoLlevar(parseFloat(cfgLlevar.valor) || 0);
 
       const init = Object.fromEntries(datos.map(p => [p.id, 0]));
-      if (initialPedido?.productos_pedidos) {
-        initialPedido.productos_pedidos.forEach(item => { init[item.producto] = item.cantidad; });
-      }
       setProductos(datos);
       setCantidades(init);
     })();
@@ -60,12 +57,12 @@ export default function AgregarProductos() {
         originalMap[pp.producto] = { ...pp };
       });
 
-      // Merge: for products already in order, ADD the new cantidades on top
+      // Merge: for products already in order, add delta from cantidades on top
       // For brand new products, create fresh entries
       const merged = { ...originalMap };
       seleccionados.forEach(p => {
         if (merged[p.id]) {
-          // Product already existed — add the new quantity to original
+          // Product already existed — add the delta to original
           const orig = merged[p.id];
           const newCantidad = orig.cantidad + cantidades[p.id];
           const precioPorUnidad = parseFloat(orig.subtotal) / orig.cantidad;

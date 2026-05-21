@@ -162,8 +162,8 @@ export default function Catalogo() {
         {seccion === "configuraciones" && (
           <ConfiguracionesPanel
             configs={configs}
-            onSave={async (id, valor) => {
-              await updateConfiguracion(id, { valor: String(valor) });
+            onSave={async (cfg, valor) => {
+              await updateConfiguracion(cfg.id, { ...cfg, valor: String(valor) });
               loadConfigs();
             }}
             openNewC={openNewC}
@@ -398,7 +398,7 @@ function ConfiguracionesPanel({ configs, onSave, openNewC, openEditC, delC }) {
                     max={meta.max}
                     step={meta.step}
                     value={val}
-                    onChange={e => onSave(cfg.id, e.target.value)}
+                    onChange={e => onSave(cfg, e.target.value)}
                     style={{ width: "100%", accentColor: "var(--sj-green)" }}
                   />
                   <div className="between" style={{ marginTop: 2 }}>
@@ -417,7 +417,7 @@ function ConfiguracionesPanel({ configs, onSave, openNewC, openEditC, delC }) {
                           borderColor: val === v ? "var(--sj-green-d)" : undefined,
                           color: val === v ? "var(--sj-green-d)" : undefined,
                         }}
-                        onClick={() => onSave(cfg.id, v)}
+                        onClick={() => onSave(cfg, v)}
                       >
                         {v}{meta.unit}
                       </span>
@@ -431,7 +431,7 @@ function ConfiguracionesPanel({ configs, onSave, openNewC, openEditC, delC }) {
                   <button
                     className="wf-btn sm"
                     style={{ background: "oklch(0.94 0.04 25)" }}
-                    onClick={() => onSave(cfg.id, Math.max(meta.min, val - meta.step))}
+                    onClick={() => onSave(cfg, Math.max(meta.min, val - meta.step))}
                   >−{meta.step}</button>
                   <input
                     type="number"
@@ -441,12 +441,12 @@ function ConfiguracionesPanel({ configs, onSave, openNewC, openEditC, delC }) {
                     min={meta.min}
                     max={meta.max}
                     step={meta.step}
-                    onChange={e => onSave(cfg.id, e.target.value)}
+                    onChange={e => onSave(cfg, e.target.value)}
                   />
                   <button
                     className="wf-btn sm"
                     style={{ background: "var(--sj-green-l)", color: "var(--sj-green-d)" }}
-                    onClick={() => onSave(cfg.id, Math.min(meta.max, val + meta.step))}
+                    onClick={() => onSave(cfg, Math.min(meta.max, val + meta.step))}
                   >+{meta.step}</button>
                   <span className="wf-sm">{meta.unit} por prod</span>
                 </div>

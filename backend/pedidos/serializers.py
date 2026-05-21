@@ -4,7 +4,7 @@ from rest_framework.exceptions import ValidationError
 
 
 class ProductoPedidoSerializer(serializers.ModelSerializer):
-    producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
+    producto_nombre = serializers.CharField(read_only=True)
 
     class Meta:
         model = ProductoPedido
@@ -39,7 +39,7 @@ class PedidoDetailSerializer(serializers.ModelSerializer):
         mesa = validated_data.get('mesa')
         tipo = validated_data.get('tipo', 'mesa')
 
-        if tipo == 'mesa' and Pedido.objects.filter(mesa=mesa, estatus__iexact='ocupado').exists():
+        if tipo == 'mesa' and Pedido.objects.filter(mesa=mesa, estatus__in=['ocupado', 'listo_cocina']).exists():
             raise ValidationError({'mesa': f'La mesa {mesa} ya está ocupada.'})
 
         pedido = Pedido.objects.create(**validated_data)
@@ -65,9 +65,12 @@ class PedidoDetailSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
 
-        # Keep listo_cocina state for existing products
+        # Keep listo_cocina state and producto_nombre snapshot for existing products
         existentes = {
-            pp.producto_id: pp.listo_cocina
+            pp.producto_id: {
+                'listo_cocina': pp.listo_cocina,
+                'producto_nombre': pp.producto_nombre,
+            }
             for pp in instance.productos_pedidos.all()
         }
 
@@ -76,12 +79,14 @@ class PedidoDetailSerializer(serializers.ModelSerializer):
         total = 0
         for prod_data in productos_data:
             producto_id = prod_data['producto'].id
-            # Preserve listo_cocina if product was already in the order
-            listo = existentes.get(producto_id, False)
+            # Preserve original snapshot if product already existed in the order
+            orig = existentes.get(producto_id, {})
+            listo = orig.get('listo_cocina', False)
+            nombre_snapshot = orig.get('producto_nombre', '') or prod_data.get('producto_nombre', prod_data['producto'].nombre)
             pp = ProductoPedido.objects.create(
                 pedido=instance,
                 producto=prod_data['producto'],
-                producto_nombre=prod_data.get('producto_nombre', prod_data['producto'].nombre),
+                producto_nombre=nombre_snapshot,
                 cantidad=prod_data['cantidad'],
                 subtotal=prod_data['subtotal'],
                 listo_cocina=listo,
